@@ -1,0 +1,603 @@
+@import "tailwindcss" source(none);
+@import "@spaces/sdk/styles/base.css";
+
+@source "./**/*.{js,ts,jsx,tsx}";
+@source "../node_modules/@spaces/sdk/src/**/*.{js,ts,jsx,tsx}";
+@source "../node_modules/@miyagi/chat/src/**/*.{js,ts,jsx,tsx}";
+
+@theme {
+  --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff;
+  --color-surface-overlay: #f9fafb;
+  --color-surface-input: rgba(249, 250, 251, 0.8);
+
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1a1a1a;
+
+  --color-content: #1a1a1a;
+  --color-content-secondary: #6b7280;
+  --color-content-muted: #9ca3af;
+  --color-content-inverse: #ffffff;
+
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border-strong: rgba(0, 0, 0, 0.15);
+  --color-border-focus: rgba(99, 102, 241, 0.5);
+
+  --color-primary: #6366f1;
+  --color-primary-hover: #818cf8;
+  --color-primary-muted: rgba(99, 102, 241, 0.12);
+  --color-primary-border: rgba(99, 102, 241, 0.3);
+
+  --color-success: #16a34a;
+  --color-success-muted: rgba(22, 163, 74, 0.15);
+  --color-success-border: rgba(22, 163, 74, 0.4);
+
+  --color-warning: #ca8a04;
+  --color-warning-muted: rgba(202, 138, 4, 0.15);
+  --color-warning-border: rgba(202, 138, 4, 0.4);
+
+  --color-danger: #dc2626;
+  --color-danger-muted: rgba(220, 38, 38, 0.15);
+  --color-danger-border: rgba(220, 38, 38, 0.4);
+
+  --color-info: #0891b2;
+  --color-info-muted: rgba(8, 145, 178, 0.15);
+  --color-info-border: rgba(8, 145, 178, 0.4);
+
+  --color-chat-bg: #ffffff;
+  --color-chat-user: #f9fafb;
+  --color-chat-ai: #ffffff;
+  --color-border-light: rgba(0, 0, 0, 0.08);
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #6b7280;
+  --color-accent: #6366f1;
+  --color-accent-hover: #818cf8;
+
+  --shadow-glow-violet: 0 0 24px rgba(99, 102, 241, 0.2);
+  --shadow-glow-cyan: 0 0 24px rgba(8, 145, 178, 0.2);
+  --shadow-glow-emerald: 0 0 24px rgba(22, 163, 74, 0.2);
+  --shadow-glow-amber: 0 0 24px rgba(202, 138, 4, 0.2);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 8px 30px rgba(0, 0, 0, 0.1);
+
+  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
+}
+
+@layer base {
+  body {
+    font-family: 'Inter', 'Helvetica', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+/* Keyframes */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.95) translateY(-10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── Kanban board styles ───────────────────────────── */
+
+/* Suppress browser-native drag-target outlines on columns */
+.kanban-column,
+.kanban-column * {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+.kanban-column:focus,
+.kanban-column:focus-visible,
+.kanban-column:active {
+  outline: none !important;
+}
+
+.kanban-card:hover {
+  border-color: #C7C7CC !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.kanban-nav-btn:hover:not(:disabled) {
+  background-color: #F0F0F5 !important;
+  border-color: #007AFF !important;
+}
+
+.kanban-complete-btn:hover {
+  background-color: #2FB84E !important;
+}
+
+/* Custom select arrow */
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 40px;
+}
+
+/* ── Mobile Responsive Overrides ──────────────────── */
+
+/* Mobile sidebar overlay backdrop */
+.mobile-sidebar-backdrop {
+  display: none;
+}
+
+/* Sidebar slide-in transition */
+.mobile-sidebar-open {
+  transform: translateX(0) !important;
+}
+
+/* Mobile task detail overlay */
+.mobile-detail-overlay {
+  position: fixed !important;
+  top: var(--mobile-header-height, 0px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  z-index: 900 !important;
+  border-left: none !important;
+}
+
+@media (max-width: 768px) {
+  /* ── Main layout ─────────────────────────────────── */
+
+  /* Lock document scroll — prevents iOS Safari body bounce/scroll */
+  html, body {
+    overflow: hidden !important;
+    height: 100% !important;
+    position: fixed !important;
+    width: 100% !important;
+    overscroll-behavior: none !important;
+  }
+
+  /* Fix iOS Safari viewport bugs — fixed inset always matches visible area
+     regardless of keyboard, zoom, or address bar state */
+  [data-app-container] {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    height: auto !important;
+  }
+
+  /* Prevent iOS Safari auto-zoom on input focus (triggers at < 16px) */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+
+  /* Sidebar: hidden off-screen by default, slides in as overlay */
+  [data-sidebar] {
+    position: fixed !important;
+    top: var(--mobile-header-height, 0px) !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: 280px !important;
+    z-index: 1001 !important;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  [data-sidebar].mobile-sidebar-open {
+    transform: translateX(0);
+  }
+
+  /* Sidebar backdrop */
+  .mobile-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    top: var(--mobile-header-height, 0px);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Hide resize handles on mobile */
+  [data-resize-handle] {
+    display: none !important;
+  }
+
+  /* ── View Header ──────────────────────────────────── */
+
+  /* Hide task count subtitle on mobile */
+  [data-view-subtitle] {
+    display: none !important;
+  }
+
+  /* Hamburger button in view header */
+  .mobile-hamburger {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: #636366;
+    border-radius: 8px;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+    margin-right: 4px;
+  }
+
+  .mobile-hamburger:active {
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  /* ── Toolbar mobile ───────────────────────────────── */
+
+  [data-toolbar] {
+    padding: 8px 12px 12px !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+  }
+
+  [data-toolbar] [data-search] {
+    max-width: none !important;
+    flex: 1 1 100% !important;
+    order: -1;
+  }
+
+  /* Compact sort/filter button labels on very narrow screens */
+
+  /* ── Task items ───────────────────────────────────── */
+
+  [data-task-item] {
+    padding: 10px 12px !important;
+  }
+
+  /* ── Quick Add ────────────────────────────────────── */
+
+  [data-quick-add] {
+    padding: 12px 12px 16px !important;
+  }
+
+  /* ── Bulk Action Bar ──────────────────────────────── */
+
+  [data-bulk-bar] {
+    padding: 8px 12px !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  [data-bulk-bar] [data-bulk-actions] {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  [data-bulk-bar] button span {
+    display: none;
+  }
+
+  /* ── Kanban Board ─────────────────────────────────── */
+
+  [data-kanban-board] {
+    padding: 12px !important;
+    gap: 10px !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+
+  [data-kanban-board] [data-kanban-column] {
+    min-width: 240px !important;
+    flex: 0 0 240px !important;
+    transition: none !important;
+  }
+
+  /* Kill transitions that trigger repaints during touch-scroll */
+  .kanban-card {
+    transition: none !important;
+  }
+
+  /* Neutralize :hover effects that fire during touch-scroll */
+  .kanban-card:hover {
+    border-color: #E5E5EA !important;
+    box-shadow: none !important;
+  }
+
+  .kanban-nav-btn:hover:not(:disabled) {
+    background-color: transparent !important;
+    border-color: inherit !important;
+  }
+
+  .kanban-complete-btn:hover {
+    background-color: inherit !important;
+  }
+
+  /* ── Modals ───────────────────────────────────────── */
+
+  /* Make modals more mobile-friendly */
+  [data-modal-content] {
+    width: 90vw !important;
+    max-width: 90vw !important;
+    max-height: 85vh !important;
+    overflow-y: auto !important;
+  }
+
+  /* Team settings modal — sit below mobile header */
+  [data-team-settings-overlay] {
+    top: var(--mobile-header-height, 0px) !important;
+  }
+
+  /* ── Kanban card modal — bottom sheet ────────────── */
+
+  [data-kanban-modal-overlay] {
+    align-items: flex-end !important;
+    justify-content: stretch !important;
+  }
+
+  [data-kanban-modal] {
+    max-width: 100% !important;
+    border-radius: 16px 16px 0 0 !important;
+    animation: filterSheetUp 0.28s cubic-bezier(0.32, 0.72, 0, 1) !important;
+  }
+
+  [data-kanban-modal]::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: #D1D1D6;
+    margin: 10px auto 0;
+    flex-shrink: 0;
+  }
+
+  /* Footer: stack buttons vertically */
+  [data-kanban-modal] > div:last-child {
+    flex-direction: column !important;
+    gap: 10px !important;
+    padding: 16px 20px max(20px, env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Nav button row — full width */
+  [data-kanban-modal] > div:last-child > div:first-child {
+    width: 100%;
+    display: flex !important;
+    gap: 8px !important;
+  }
+
+  /* All buttons inside footer — grow to fill */
+  [data-kanban-modal] > div:last-child button {
+    flex: 1 !important;
+    min-height: 44px !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Complete button — full width on its own row */
+  [data-kanban-modal] .kanban-modal-button:last-child {
+    width: 100%;
+  }
+
+  /* ── Filter dropdown: bottom-sheet on mobile ──────── */
+
+  [data-filter-backdrop] {
+    background: rgba(0, 0, 0, 0.4) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+  }
+
+  [data-filter-dropdown] {
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-height: 80vh !important;
+    border-radius: 16px 16px 0 0 !important;
+    border: none !important;
+    box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.12) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    animation: filterSheetUp 0.28s cubic-bezier(0.32, 0.72, 0, 1) !important;
+  }
+
+  [data-filter-dropdown]::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: #D1D1D6;
+    margin: 10px auto 2px;
+    flex-shrink: 0;
+  }
+
+  /* Filter header — wrap controls on narrow screens */
+  [data-filter-dropdown] > div:first-of-type {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    padding: 12px 20px 14px !important;
+  }
+
+  /* ── Filter grid — vertical scroll container ──────── */
+
+  [data-filter-grid] {
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    border-top: none !important;
+    padding-bottom: max(20px, env(safe-area-inset-bottom)) !important;
+  }
+
+  /* ── Filter sections — full-width stacked ─────────── */
+
+  [data-filter-section] {
+    flex: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid #F2F2F7 !important;
+    padding: 16px 20px !important;
+    box-sizing: border-box !important;
+  }
+
+  [data-filter-section]:last-child {
+    border-bottom: none !important;
+  }
+
+  /* Section headers */
+  [data-filter-section] > div:first-child {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #1D1D1F !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    margin-bottom: 8px !important;
+  }
+
+  /* Section body — no inner scroll, outer sheet scrolls */
+  [data-filter-section] > div:last-child {
+    max-height: none !important;
+    overflow: visible !important;
+    gap: 2px !important;
+  }
+
+  /* Filter option rows — larger touch targets */
+  [data-filter-section] label {
+    padding: 10px 10px !important;
+    min-height: 44px !important;
+    border-radius: 10px !important;
+    gap: 10px !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  [data-filter-section] label:active {
+    background: rgba(0, 0, 0, 0.04) !important;
+  }
+
+  /* Checkboxes — bigger for finger taps */
+  [data-filter-section] input[type="checkbox"] {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+  }
+
+  /* Option text — ensure full width */
+  [data-filter-section] label span {
+    font-size: 15px !important;
+  }
+
+  /* ── Mobile sidebar close button ──────────────────── */
+
+  .mobile-sidebar-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: #8E8E93;
+    border-radius: 8px;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-sidebar-close:active {
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  /* ── Task Detail mobile overlay ───────────────────── */
+
+  .mobile-detail-backdrop {
+    position: fixed;
+    top: var(--mobile-header-height, 0px);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 899;
+  }
+
+  /* GPU compositing + slide-in animation */
+  .mobile-detail-overlay {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-left: none !important;
+    animation: detailSlideIn 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  /* Header — taller on mobile */
+  .mobile-detail-overlay > div:first-child {
+    padding: 16px 16px 12px !important;
+    min-height: 48px !important;
+  }
+
+  /* Bigger action buttons in header for touch */
+  .mobile-detail-overlay > div:first-child button {
+    min-width: 36px !important;
+    min-height: 36px !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Scrollable content — native momentum + prevent scroll chaining */
+  .mobile-detail-overlay > div:nth-child(2) {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding-bottom: max(20px, env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@keyframes filterSheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes detailSlideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* Hide hamburger on desktop */
+@media (min-width: 769px) {
+  .mobile-hamburger {
+    display: none !important;
+  }
+
+  .mobile-sidebar-backdrop {
+    display: none !important;
+  }
+
+  .mobile-sidebar-close {
+    display: none !important;
+  }
+
+  .mobile-detail-backdrop {
+    display: none !important;
+  }
+}
