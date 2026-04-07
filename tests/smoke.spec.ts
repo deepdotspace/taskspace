@@ -28,9 +28,7 @@ test.describe('Smoke tests', () => {
   test('sign-in button visible when logged out', async ({ page }) => {
     await page.goto('/')
     await waitForApp(page)
-    // The task manager shows the sidebar even for anonymous users
-    // Auth overlay is shown by DeepSpace SDK when not signed in
-    await expect(page.getByTestId('sidebar')).toBeVisible()
+    await expect(page.getByTestId('read-only-sign-in-button')).toBeVisible()
   })
 
   test('unknown route shows 404', async ({ page }) => {

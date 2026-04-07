@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { useUser, useUsers } from 'deepspace';
+import { AuthOverlay, useUser, useUsers } from 'deepspace';
 
 // Components
 import Sidebar from '../components/Sidebar';
@@ -134,6 +134,7 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isResizeHovered, setIsResizeHovered] = useState(false);
   const [showReadOnlyBanner, setShowReadOnlyBanner] = useState(true);
+  const [showReadOnlyAuth, setShowReadOnlyAuth] = useState(false);
   const [isDetailResizeHovered, setIsDetailResizeHovered] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
 
@@ -434,6 +435,7 @@ export default function HomePage() {
         onTaskDragEnd={isReadOnly ? undefined : dragHandlers.onDragEnd}
         allUsers={allUsers} currentUser={currentUser} width={sidebarResize.width}
         getDisplayName={getDisplayName} isReadOnly={isReadOnly}
+        onSignIn={!platformUser ? () => setShowReadOnlyAuth(true) : undefined}
         isMobile={isMobile} isMobileOpen={mobileSidebarOpen} onMobileClose={handleMobileSidebarClose} />
 
       <div data-resize-handle onMouseDown={sidebarResize.startResize}
@@ -445,7 +447,15 @@ export default function HomePage() {
       <div style={styles.main}>
         <div style={styles.contentWrapper}>
           <div style={styles.taskListArea}>
-            {isReadOnly && showReadOnlyBanner && <ReadOnlyBanner onClose={handleCloseReadOnlyBanner} />}
+            {isReadOnly && showReadOnlyBanner && (!platformUser ? (
+              <ReadOnlyBanner
+                mode="anonymous"
+                onClose={handleCloseReadOnlyBanner}
+                onSignIn={() => setShowReadOnlyAuth(true)}
+              />
+            ) : (
+              <ReadOnlyBanner mode="viewer" onClose={handleCloseReadOnlyBanner} />
+            ))}
 
             <ViewHeader view={currentView} project={currentProject} user={currentUserForView}
               taskCount={displayedTasks.length} taskCountData={displayedTaskCounts}
@@ -595,6 +605,10 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showReadOnlyAuth && (
+        <AuthOverlay onClose={() => setShowReadOnlyAuth(false)} />
       )}
 
       <ConfirmModal isOpen={deleteConfirmModal.isOpen}

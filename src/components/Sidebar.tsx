@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { signOut } from 'deepspace';
 import { Icon } from '../utils/icons';
 import { styles } from '../utils/styles';
 import {
@@ -34,6 +35,7 @@ interface SidebarProps {
   width: number;
   getDisplayName: (user: WidgetUser | null) => string;
   isReadOnly: boolean;
+  onSignIn?: () => void;
   // Mobile props
   isMobile?: boolean;
   isMobileOpen?: boolean;
@@ -500,6 +502,7 @@ function Sidebar(props: SidebarProps) {
     onTaskDrop, onTaskDropOnUser, onTaskDragEnd,
     allUsers, currentUser, onManageUsers,
     width, getDisplayName, isReadOnly,
+    onSignIn,
     isMobile, isMobileOpen, onMobileClose,
   } = props;
 
@@ -745,6 +748,45 @@ function Sidebar(props: SidebarProps) {
             />
           ))}
         </div>
+      </div>
+
+      {/* Pinned footer — sign in or user info */}
+      <div style={styles.sidebarFooter}>
+        {currentUser ? (
+          <div style={styles.sidebarUserFooter}>
+            <div style={{
+              ...styles.sidebarUserAvatar,
+              backgroundColor: currentUser.color || '#6366f1',
+            }}>
+              {currentUser.imageUrl ? (
+                <img src={currentUser.imageUrl} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                (currentUser.name?.[0] || '?').toUpperCase()
+              )}
+            </div>
+            <div style={styles.sidebarUserInfo}>
+              <div style={styles.sidebarUserName}>{currentUser.name || 'Unknown'}</div>
+              {currentUser.email && <div style={styles.sidebarUserEmail}>{currentUser.email}</div>}
+            </div>
+            <button
+              onClick={() => signOut()}
+              style={styles.sidebarSignOutBtn}
+              title="Sign out"
+            >
+              <Icon name="log-out" size={16} color="#8E8E93" />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            data-testid="sidebar-sign-in-button"
+            onClick={onSignIn}
+            style={styles.sidebarSignInBtn}
+          >
+            <Icon name="log-in" size={16} color="#fff" />
+            Sign in
+          </button>
+        )}
       </div>
     </div>
   );
