@@ -19,6 +19,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.75",
     "@generouted/react-router": "^1.20.0",
     "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-checkbox": "^1.1.0",
@@ -33,18 +34,25 @@
     "@radix-ui/react-switch": "^1.1.0",
     "@radix-ui/react-tabs": "^1.1.0",
     "@radix-ui/react-tooltip": "^1.1.0",
+    "ai": "^6.0.175",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
-    "deepspace": "file:/Users/donalddellapietra/GitHub/taskspace/deepspace-0.1.1.tgz",
+    "deepspace": "file:/Users/yukewu/Desktop/deepspace-sdk/packages/deepspace",
     "framer-motion": "^11.15.0",
+    "highlight.js": "^11.11.1",
     "hono": "^4.7.0",
     "lucide-react": "^0.460.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
     "react-router": "^7.1.0",
     "react-router-dom": "^7.1.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.6.0",
-    "yjs": "^13.6.0"
+    "yjs": "^13.6.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.0.0",

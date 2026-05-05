@@ -24,7 +24,6 @@ import {
   RecordRoom,
   YjsRoom,
   CanvasRoom,
-  MediaRoom,
   PresenceRoom,
   createScopedR2Handler,
   type ScopedR2Handler,
@@ -33,6 +32,7 @@ import type { ActionTools, ActionResult, DOManifest, DOBindings } from 'deepspac
 import { actions } from './src/actions/index.js'
 import { handleCron } from './src/cron.js'
 import { schemas } from './src/schemas.js'
+import { registerAiChatRoutes } from './src/ai/chat-routes.js'
 
 // =============================================================================
 // DO Manifest — declares all Durable Objects for dynamic deploy bindings
@@ -42,7 +42,6 @@ export const __DO_MANIFEST__ = [
   { binding: 'RECORD_ROOMS', className: 'AppRecordRoom', sqlite: true },
   { binding: 'YJS_ROOMS', className: 'AppYjsRoom', sqlite: true },
   { binding: 'CANVAS_ROOMS', className: 'AppCanvasRoom', sqlite: true },
-  { binding: 'MEDIA_ROOMS', className: 'AppMediaRoom', sqlite: true },
   { binding: 'PRESENCE_ROOMS', className: 'AppPresenceRoom', sqlite: true },
 ] as const satisfies DOManifest
 
@@ -58,27 +57,27 @@ export class AppRecordRoom extends RecordRoom {
 
 export class AppYjsRoom extends YjsRoom {}
 export class AppCanvasRoom extends CanvasRoom {}
-export class AppMediaRoom extends MediaRoom {}
 export class AppPresenceRoom extends PresenceRoom {}
 
 // =============================================================================
 // Types
 // =============================================================================
 
-interface Env extends DOBindings<typeof __DO_MANIFEST__> {
+export interface Env extends DOBindings<typeof __DO_MANIFEST__> {
   ASSETS: Fetcher
   FILES: R2Bucket
-  API_WORKER: Fetcher
+  API_WORKER?: Fetcher
   AUTH_JWT_PUBLIC_KEY: string
   AUTH_JWT_ISSUER: string
   AUTH_WORKER_URL: string
-  API_WORKER_URL: string
+  API_WORKER_URL?: string
   APP_NAME: string
   OWNER_USER_ID: string
+  APP_OWNER_JWT: string
   INTERNAL_STORAGE_HMAC_SECRET: string
 }
 
-type AppContext = { Bindings: Env }
+export type AppContext = { Bindings: Env }
 
 // =============================================================================
 // App
@@ -171,6 +170,12 @@ app.all('/api/auth/*', async (c) => {
 })
 
 // ---------------------------------------------------------------------------
+// AI chat routes
+// ---------------------------------------------------------------------------
+
+registerAiChatRoutes(app, resolveAuth)
+
+// ---------------------------------------------------------------------------
 // Integrations proxy → api-worker (OpenAI, search, etc.)
 // ---------------------------------------------------------------------------
 
@@ -245,8 +250,6 @@ app.get('/ws/yjs/:docId', wsRoute((env) => env.YJS_ROOMS, () => ({ role: 'member
 
 app.get('/ws/canvas/:docId', wsRoute((env) => env.CANVAS_ROOMS, () => ({ role: 'member' })))
 
-app.get('/ws/media/:roomId', wsRoute((env) => env.MEDIA_ROOMS, () => ({ role: 'member' })))
-
 app.get('/ws/presence/:scopeId', wsRoute(
   (env) => env.PRESENCE_ROOMS,
   (auth) => ({
@@ -267,9 +270,10 @@ app.post('/api/actions/:name', async (c) => {
   const action = actions[name]
   if (!action) return c.json({ error: 'Action not found' }, 404)
   const params = await c.req.json<Record<string, unknown>>()
-  const tools = createActionTools(c.env, auth.userId)
-  const result = await action({ userId: auth.userId, params, tools })
-  return c.json(result)
+  const callerJwt = c.req.header('Authorization')!.slice(7)
+  const tools = createActionTools(c.env, auth.userId, callerJwt)
+  const result = await action({ userId: auth.userId, params, tools, env: c.env as unknown as Record<string, unknown> })
+  return c.json(result as unknown as Record<string, unknown>)
 })
 
 // ---------------------------------------------------------------------------
@@ -331,30 +335,44 @@ app.get('*', async (c) => {
 // Action Tools — route to app's own RecordRoom DO
 // =============================================================================
 
-function createActionTools(env: Env, userId: string): ActionTools {
-  const scopeId = `app:${env.APP_NAME}`
+function createActionTools(env: Env, userId: string, callerJwt: string): ActionTools {
+  const stub = env.RECORD_ROOMS.get(env.RECORD_ROOMS.idFromName(`app:${env.APP_NAME}`))
 
   async function execTool(tool: string, params: Record<string, unknown>): Promise<ActionResult> {
-    const doId = env.RECORD_ROOMS.idFromName(scopeId)
-    const stub = env.RECORD_ROOMS.get(doId)
     const res = await stub.fetch(new Request('https://internal/api/tools/execute', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-user-id': userId,
-        'x-app-action': 'true',
+        'X-User-Id': userId,
+        'X-App-Action': 'true',
       },
       body: JSON.stringify({ tool, params }),
     }))
     return res.json() as Promise<ActionResult>
   }
 
+  async function callIntegration(endpoint: string, data?: unknown): Promise<ActionResult> {
+    const targetUrl = env.API_WORKER
+      ? `https://api-worker.internal/api/integrations/${endpoint}`
+      : `${env.API_WORKER_URL ?? ''}/api/integrations/${endpoint}`
+    const res = await (env.API_WORKER ?? globalThis).fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${callerJwt}`,
+      },
+      body: data != null ? JSON.stringify(data) : undefined,
+    })
+    return res.json() as Promise<ActionResult>
+  }
+
   return {
-    create: (sid, collection, data) => execTool('records.create', { scopeId: sid, collection, data }),
-    update: (sid, collection, recordId, data) => execTool('records.update', { scopeId: sid, collection, recordId, data }),
-    remove: (sid, collection, recordId) => execTool('records.delete', { scopeId: sid, collection, recordId }),
-    get: (sid, collection, recordId) => execTool('records.get', { scopeId: sid, collection, recordId }),
-    query: (sid, collection, options) => execTool('records.query', { scopeId: sid, collection, ...options }),
+    create: (collection, data) => execTool('records.create', { collection, data }),
+    update: (collection, recordId, data) => execTool('records.update', { collection, recordId, data }),
+    remove: (collection, recordId) => execTool('records.delete', { collection, recordId }),
+    get: (collection, recordId) => execTool('records.get', { collection, recordId }),
+    query: (collection, options) => execTool('records.query', { collection, ...options }),
+    integration: callIntegration,
   }
 }
 

@@ -7,7 +7,7 @@
 
 export default async function globalSetup() {
   const maxRetries = 5
-  const baseUrl = 'http://localhost:5173'
+  const baseUrl = 'http://localhost:5174'
 
   for (let i = 0; i < maxRetries; i++) {
     try {

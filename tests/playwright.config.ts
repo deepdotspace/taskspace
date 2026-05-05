@@ -7,13 +7,13 @@ export default defineConfig({
   timeout: 30_000,
   retries: 0,
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:5174',
     headless: true,
   },
   webServer: {
     command: 'npx vite',
     cwd: '..',
-    port: 5173,
+    port: 5174,
     reuseExistingServer: true,
     timeout: 30_000,
     stdout: 'pipe',

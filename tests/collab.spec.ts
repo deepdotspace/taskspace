@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test'
-import { createTestUsers } from './helpers/auth'
+import { signUp } from './helpers/auth'
+
+const TEST_USERS = [
+  { email: 'alice-1777048251@deepspace.test', password: 'Pass123!', name: 'Alice' },
+  { email: 'bob-1777048251@deepspace.test', password: 'Pass123!', name: 'Bob' },
+]
 
 async function waitForApp(page: import('@playwright/test').Page) {
   await page.waitForSelector('[data-testid="app-container"], [data-testid="sidebar"]', { timeout: 15000 })
@@ -7,17 +12,22 @@ async function waitForApp(page: import('@playwright/test').Page) {
 
 test.describe('Multi-user collaboration', () => {
   test('two users are recognized as different users', async ({ browser }) => {
-    const users = await createTestUsers(browser, 2)
+    const contexts = await Promise.all(TEST_USERS.map(() => browser.newContext()))
+    const pages = await Promise.all(contexts.map(ctx => ctx.newPage()))
 
     try {
-      await waitForApp(users[0].page)
-      await waitForApp(users[1].page)
+      for (let i = 0; i < TEST_USERS.length; i++) {
+        await signUp(pages[i], TEST_USERS[i].email, TEST_USERS[i])
+      }
+
+      await waitForApp(pages[0])
+      await waitForApp(pages[1])
 
       // Both should have the sidebar visible (they're signed in)
-      await expect(users[0].page.getByTestId('sidebar')).toBeVisible()
-      await expect(users[1].page.getByTestId('sidebar')).toBeVisible()
+      await expect(pages[0].getByTestId('sidebar')).toBeVisible()
+      await expect(pages[1].getByTestId('sidebar')).toBeVisible()
     } finally {
-      for (const u of users) await u.context.close()
+      for (const ctx of contexts) await ctx.close()
     }
   })
 })

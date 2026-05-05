@@ -6,6 +6,7 @@
  */
 
 import type { CollectionSchema } from 'deepspace/worker'
+import { AI_CHATS_SCHEMA, AI_MESSAGES_SCHEMA } from 'deepspace/worker'
 import { usersSchema } from './schemas/users-schema'
 import { settingsSchema } from './schemas/admin-schema'
 import { tasksSchema } from './schemas/tasks-schema'
@@ -18,4 +19,6 @@ export const schemas: CollectionSchema[] = [
   tasksSchema,
   projectsSchema,
   tagsSchema,
+  AI_CHATS_SCHEMA,
+  AI_MESSAGES_SCHEMA,
 ]

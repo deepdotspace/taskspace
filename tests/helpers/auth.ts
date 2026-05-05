@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 
-const AUTH_BASE = 'http://localhost:5173'
+const AUTH_BASE = 'http://localhost:5174'
 
 /**
  * Sign up a new user on the dev auth worker. Returns the user ID.

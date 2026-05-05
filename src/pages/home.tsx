@@ -2,8 +2,8 @@
  * Things-like Task Manager — Main Page
  */
 
-import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { AuthOverlay, useUser, useUsers } from 'deepspace';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { AuthOverlay, useUser, useUsers, useQuery, getAuthToken } from 'deepspace';
 
 // Components
 import Sidebar from '../components/Sidebar';
@@ -16,6 +16,7 @@ import BulkActionBar from '../components/BulkActionBar';
 import ReadOnlyBanner from '../components/ReadOnlyBanner';
 import ConfirmModal from '../components/ConfirmModal';
 import KanbanBoard from '../components/KanbanBoard';
+import { ChatPanel } from '../components/ChatPanel';
 
 // Hooks
 import {
@@ -100,6 +101,63 @@ export default function HomePage() {
 
   const isMobile = useIsMobile();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [creatingChat, setCreatingChat] = useState(false);
+
+  // Chat history — only query when signed in so it doesn't emit anon requests
+  const { records: chatsRaw } = useQuery<{ userId: string; title?: string }>(
+    'ai-chats',
+    platformUser
+      ? { where: { userId: platformUser.id }, orderBy: 'updatedAt', orderDir: 'desc', limit: 50 }
+      : {},
+  );
+  const chats = useMemo(() => {
+    if (!chatsRaw) return [];
+    return [...chatsRaw].sort((a, b) => {
+      const aT = Date.parse((a as any).updatedAt ?? (a as any).createdAt ?? '') || 0;
+      const bT = Date.parse((b as any).updatedAt ?? (b as any).createdAt ?? '') || 0;
+      return bT - aT;
+    });
+  }, [chatsRaw]);
+
+  const handleNewChat = useCallback(async () => {
+    setActiveChatId(null);
+    setHistoryOpen(false);
+    setCreatingChat(true);
+    try {
+      const token = await getAuthToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch('/api/ai/chats', { method: 'POST', headers });
+      if (!res.ok) throw new Error(`create chat failed: ${res.status}`);
+      const data = await res.json() as { chat?: { id?: string } };
+      if (data.chat?.id) setActiveChatId(data.chat.id);
+    } catch (err) {
+      console.error('[ai-chat] create chat failed:', err);
+    } finally {
+      setCreatingChat(false);
+    }
+  }, []);
+
+  const handleSelectChat = useCallback((id: string) => {
+    setActiveChatId(id);
+    setHistoryOpen(false);
+  }, []);
+
+  const handleDeleteChat = useCallback(async (id: string) => {
+    try {
+      const token = await getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      await fetch(`/api/ai/chats/${id}`, { method: 'DELETE', headers });
+      setActiveChatId((cur) => (cur === id ? null : cur));
+    } catch (err) {
+      console.error('[ai-chat] delete chat failed:', err);
+    }
+  }, []);
+
   const handleMobileSidebarOpen = useCallback(() => setMobileSidebarOpen(true), []);
   const handleMobileSidebarClose = useCallback(() => setMobileSidebarOpen(false), []);
 
@@ -531,6 +589,67 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* AI Chat panel — flex sibling so it pushes main content rather than overlapping it */}
+      {showChat && platformUser && (
+        <>
+          <div style={{ width: 1, background: '#E5E5EA', flexShrink: 0 }} />
+          <div style={{ width: isMobile ? '100vw' : 420, flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden', position: 'relative' }}>
+            <ChatPanel
+              chatId={activeChatId}
+              userId={platformUser.id}
+              onChatCreated={setActiveChatId}
+              disabled={creatingChat}
+              header={
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 8px', height: 44, borderBottom: '1px solid #E5E5EA', flexShrink: 0 }}>
+                  <span style={{ flex: 1, fontWeight: 600, fontSize: 14, paddingLeft: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>AI Assistant</span>
+                  {/* New chat */}
+                  <button onClick={handleNewChat} title="New chat" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, color: '#8E8E93' }}>
+                    <Icon name="plus" size={16} />
+                  </button>
+                  {/* History */}
+                  <button onClick={() => setHistoryOpen(v => !v)} title="Chat history" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, color: historyOpen ? '#007AFF' : '#8E8E93' }}>
+                    <Icon name="clock" size={16} />
+                  </button>
+                  {/* Close */}
+                  <button onClick={() => { setShowChat(false); setHistoryOpen(false); }} title="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, color: '#8E8E93' }}>
+                    <Icon name="x" size={16} />
+                  </button>
+                </div>
+              }
+              emptyStatePrompts={[
+                'What tasks are due soon?',
+                'Create a task to review the project',
+                'Show my high-priority tasks',
+              ]}
+            />
+            {/* Chat history overlay */}
+            {historyOpen && (
+              <div style={{ position: 'absolute', inset: 0, zIndex: 10, background: 'rgba(0,0,0,0.3)', display: 'flex', justifyContent: 'flex-end' }} onClick={() => setHistoryOpen(false)}>
+                <div style={{ width: '100%', maxWidth: 320, background: '#fff', display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 16px rgba(0,0,0,0.1)' }} onClick={e => e.stopPropagation()}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #E5E5EA' }}>
+                    <span style={{ fontWeight: 600, fontSize: 13 }}>History</span>
+                    <button onClick={() => setHistoryOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8E8E93' }}><Icon name="x" size={14} /></button>
+                  </div>
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {chats.length === 0 ? (
+                      <span style={{ fontSize: 12, color: '#8E8E93', padding: '8px 4px' }}>No previous conversations.</span>
+                    ) : chats.map((chat) => (
+                      <div key={chat.recordId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, background: chat.recordId === activeChatId ? '#F2F2F7' : 'transparent', cursor: 'pointer' }}
+                        onClick={() => handleSelectChat(chat.recordId)}>
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: chat.recordId === activeChatId ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#1D1D1F' }}>
+                          {(chat.data.title ?? '').trim() || 'Untitled'}
+                        </span>
+                        <button onClick={e => { e.stopPropagation(); void handleDeleteChat(chat.recordId); }} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8E8E93', opacity: 0.6, padding: 2 }}><Icon name="x" size={12} /></button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
       {showNewProjectInput && (
         <div style={styles.modal} onClick={() => setShowNewProjectInput(false)}>
           <div data-modal-content style={styles.modalContent} onClick={e => e.stopPropagation()}>
@@ -609,6 +728,34 @@ export default function HomePage() {
 
       {showReadOnlyAuth && (
         <AuthOverlay onClose={() => setShowReadOnlyAuth(false)} />
+      )}
+
+      {/* AI Chat floating button — hidden while the panel is open */}
+      {platformUser && !isReadOnly && !showChat && (
+        <button
+          onClick={() => setShowChat(true)}
+          title="AI Assistant"
+          style={{
+            position: 'fixed',
+            bottom: 80,
+            right: 24,
+            width: 48,
+            height: 48,
+            borderRadius: '50%',
+            background: '#007AFF',
+            color: '#fff',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 22,
+            boxShadow: '0 2px 12px rgba(0,122,255,0.4)',
+            zIndex: 200,
+          }}
+        >
+          ✦
+        </button>
       )}
 
       <ConfirmModal isOpen={deleteConfirmModal.isOpen}

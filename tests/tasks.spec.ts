@@ -4,8 +4,7 @@ import { captureConsoleErrors } from './helpers/errors'
 
 test.describe('Task CRUD', () => {
   test.beforeEach(async ({ page }) => {
-    const email = `task-test-${Date.now()}@test.local`
-    await signUp(page, email, { name: 'Task Tester' })
+    await signUp(page, 'alice-1777048251@deepspace.test', { password: 'Pass123!', name: 'Alice' })
     await page.waitForSelector('[data-testid="app-container"]', { timeout: 15000 })
   })
 
