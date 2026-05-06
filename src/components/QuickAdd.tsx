@@ -70,6 +70,17 @@ function QuickAdd({ onAdd, placeholder, autoFocus }: QuickAddProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (value.trim()) {
+        const lines = value.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+        lines.forEach((line, index) => {
+          setTimeout(() => onAdd({ title: line }), index * 10);
+        });
+        setValue('');
+      }
+      return;
+    }
     if (e.key === 'Escape') {
       setValue('');
       inputRef.current?.blur();
