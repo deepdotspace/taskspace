@@ -92,6 +92,7 @@ export const KANBAN_STATUS_CONFIG = [
 
 // ── Default Task ────────────────────────────────────
 export const DEFAULT_TASK: TaskRecord = {
+  TeamId: '',
   Title: '',
   Notes: '',
   Completed: 0,
@@ -111,6 +112,7 @@ export const DEFAULT_TASK: TaskRecord = {
 
 // ── Default Project ─────────────────────────────────
 export const DEFAULT_PROJECT: ProjectRecord = {
+  TeamId: '',
   Title: 'New Project',
   Notes: '',
   Color: '#007AFF',
@@ -127,6 +129,7 @@ export const TAG_COLORS = [
 ];
 
 export const DEFAULT_TAG: TagRecord = {
+  TeamId: '',
   Name: '',
   Color: '#007AFF',
   CreatedAt: 0,
@@ -236,7 +239,45 @@ export function getRandomUserColor(): string {
 
 // ── Record data shapes (PascalCase column names) ──
 
+// ── Team types ──────────────────────────────────────
+
+export interface TeamRecord {
+  Name: string;
+  CreatedBy: string; // userId
+  IsOpen: number;    // 1 = open (join by ID), 0 = invite only
+}
+
+export interface TeamMemberRecord {
+  TeamId: string;
+  UserId: string;
+  RoleInTeam: string; // 'admin' | 'member'
+  JoinedAt: number;   // unix ms timestamp
+  Email: string;      // email for invited-not-yet-signed-in users
+  Status: string;     // 'active' | 'invited'
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  createdBy: string;
+  isOpen: boolean;
+}
+
+export interface TeamMember {
+  id: string;        // team_members record ID
+  teamId: string;
+  userId: string;
+  roleInTeam: string;
+  joinedAt: number;
+  email: string;
+  status: string;    // 'active' | 'invited'
+  isPending: boolean;
+}
+
+// ── Record data shapes (PascalCase column names) ──
+
 export interface TaskRecord {
+  TeamId: string;
   Title: string;
   Notes: string;
   Completed: number;
@@ -255,6 +296,7 @@ export interface TaskRecord {
 }
 
 export interface ProjectRecord {
+  TeamId: string;
   Title: string;
   Notes: string;
   Color: string;
@@ -264,6 +306,7 @@ export interface ProjectRecord {
 }
 
 export interface TagRecord {
+  TeamId: string;
   Name: string;
   Color: string;
   CreatedAt: number;

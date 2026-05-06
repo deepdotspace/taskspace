@@ -9,7 +9,7 @@
 
 import { Suspense, type ReactNode } from 'react'
 import { Outlet } from 'react-router-dom'
-import { DeepSpaceAuthProvider, useAuth } from 'deepspace'
+import { DeepSpaceAuthProvider, useAuth, AuthOverlay } from 'deepspace'
 import { RecordProvider, RecordScope } from 'deepspace'
 import { ToastProvider } from '../components/ui'
 import { APP_NAME, SCOPE_ID } from '../constants'
@@ -30,7 +30,7 @@ export default function App() {
 }
 
 function AuthGate({ children }: { children: ReactNode }) {
-  const { isLoaded } = useAuth()
+  const { isLoaded, isSignedIn } = useAuth()
 
   if (!isLoaded) {
     return (
@@ -44,8 +44,20 @@ function AuthGate({ children }: { children: ReactNode }) {
     )
   }
 
+  if (!isSignedIn) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        minHeight: '100vh', background: '#F5F5F7',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif',
+      }}>
+        <AuthOverlay />
+      </div>
+    )
+  }
+
   return (
-    <RecordProvider allowAnonymous>
+    <RecordProvider>
       <RecordScope roomId={SCOPE_ID} schemas={schemas} appId={APP_NAME}>
         {children}
       </RecordScope>

@@ -54,11 +54,12 @@ function getDescendantIds(projects: Project[], parentId: string): string[] {
 
 // ── Main Hook ───────────────────────────────────────
 
-export function useTaskData(currentUser: WidgetUser | null) {
+export function useTaskData(currentUser: WidgetUser | null, teamId: string | null) {
   // ── Query collections (PascalCase columns) ──
-  const { records: taskRecords, status: taskStatus } = useQuery<TaskRecord>('tasks');
-  const { records: projectRecords, status: projectStatus } = useQuery<ProjectRecord>('projects');
-  const { records: tagRecords, status: tagStatus } = useQuery<TagRecord>('tags');
+  const teamFilter = teamId ? { where: { TeamId: teamId } } : {};
+  const { records: taskRecords, status: taskStatus } = useQuery<TaskRecord>('tasks', teamFilter);
+  const { records: projectRecords, status: projectStatus } = useQuery<ProjectRecord>('projects', teamFilter);
+  const { records: tagRecords, status: tagStatus } = useQuery<TagRecord>('tags', teamFilter);
 
   const { create: createTask, put: putTask, remove: removeTask } = useMutations<TaskRecord>('tasks');
   const { create: createProject, put: putProject, remove: removeProject } = useMutations<ProjectRecord>('projects');
@@ -313,6 +314,7 @@ export function useTaskData(currentUser: WidgetUser | null) {
       };
 
       const data: TaskRecord = {
+        TeamId: teamId ?? '',
         Title: taskFields.title,
         Notes: taskFields.notes,
         Completed: taskFields.completed ? 1 : 0,
@@ -368,6 +370,7 @@ export function useTaskData(currentUser: WidgetUser | null) {
   function mergeTaskUpdate(existing: { data: TaskRecord }, updates: Partial<Task>): TaskRecord {
     const { id: _id, _isInSubproject: _sub, ...cleanUpdates } = updates;
     return {
+      TeamId: existing.data.TeamId,
       Title: cleanUpdates.title ?? existing.data.Title,
       Notes: cleanUpdates.notes ?? existing.data.Notes,
       Completed: cleanUpdates.completed !== undefined ? (cleanUpdates.completed ? 1 : 0) : existing.data.Completed,
@@ -502,6 +505,7 @@ export function useTaskData(currentUser: WidgetUser | null) {
       const siblings = currentProjects.filter(p => p.parentId === (projectData.parentId || null));
       const maxOrder = Math.max(0, ...siblings.map(p => p.order ?? 0));
       const data: ProjectRecord = {
+        TeamId: teamId ?? '',
         Title: projectData.title || 'New Project',
         Notes: projectData.notes || '',
         Color: projectData.color || '#007AFF',
@@ -529,6 +533,7 @@ export function useTaskData(currentUser: WidgetUser | null) {
       if (!existing) return;
       const { id: _id, ...cleanUpdates } = updates;
       const merged: ProjectRecord = {
+        TeamId: existing.data.TeamId,
         Title: cleanUpdates.title ?? existing.data.Title,
         Notes: cleanUpdates.notes ?? existing.data.Notes,
         Color: cleanUpdates.color ?? existing.data.Color,
@@ -611,6 +616,7 @@ export function useTaskData(currentUser: WidgetUser | null) {
   const addTag = useCallback(
     async (tagData: Partial<Tag>) => {
       const data: TagRecord = {
+        TeamId: teamId ?? '',
         Name: tagData.name || '',
         Color: tagData.color || '#007AFF',
         CreatedAt: Date.now(),

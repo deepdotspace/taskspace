@@ -36,6 +36,7 @@ interface SidebarProps {
   getDisplayName: (user: WidgetUser | null) => string;
   isReadOnly: boolean;
   onSignIn?: () => void;
+  teamSelector?: React.ReactNode;
   // Mobile props
   isMobile?: boolean;
   isMobileOpen?: boolean;
@@ -502,7 +503,7 @@ function Sidebar(props: SidebarProps) {
     onTaskDrop, onTaskDropOnUser, onTaskDragEnd,
     allUsers, currentUser, onManageUsers,
     width, getDisplayName, isReadOnly,
-    onSignIn,
+    onSignIn, teamSelector,
     isMobile, isMobileOpen, onMobileClose,
   } = props;
 
@@ -651,6 +652,7 @@ function Sidebar(props: SidebarProps) {
           </button>
         )}
       </div>
+      {teamSelector}
       <div style={styles.sidebarNav}>
         {/* Nav items */}
         {NAV_ITEMS.map(item => {

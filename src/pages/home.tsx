@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { AuthOverlay, useUser, useUsers, useQuery, getAuthToken } from 'deepspace';
+import { useUser, useUsers, useQuery, useMutations, getAuthToken } from 'deepspace';
 
 // Components
 import Sidebar from '../components/Sidebar';
@@ -17,6 +17,9 @@ import ReadOnlyBanner from '../components/ReadOnlyBanner';
 import ConfirmModal from '../components/ConfirmModal';
 import KanbanBoard from '../components/KanbanBoard';
 import { ChatPanel } from '../components/ChatPanel';
+import { TeamOnboarding } from '../components/TeamOnboarding';
+import { TeamSelector } from '../components/TeamSelector';
+import { TeamSettings } from '../components/TeamSettings';
 
 // Hooks
 import {
@@ -32,6 +35,7 @@ import {
 // Utils
 import { Icon } from '../utils/icons';
 import { toggleNullableMultiSelect } from '../utils/toggleNullableMultiSelect';
+import { callAction } from '../utils/callAction';
 import { computeDisplayedTasks } from '../utils/computeDisplayedTasks';
 import { styles } from '../utils/styles';
 
@@ -44,6 +48,10 @@ import {
   ViewState,
   WidgetUser,
   Task,
+  Team,
+  TeamMember,
+  TeamRecord,
+  TeamMemberRecord,
   getUserColor,
 } from '../constants';
 
@@ -83,7 +91,204 @@ export default function HomePage() {
     return user.name || user.email || 'Unknown';
   }, []);
 
+  // ── Team state ───────────────────────────────────────────────────────────
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(() =>
+    localStorage.getItem('taskspace_activeTeamId')
+  );
+
+  // My team memberships (where UserId = me)
+  const { records: myMembershipRecords, status: membershipStatus } = useQuery<TeamMemberRecord>(
+    'team_members',
+    currentUser ? { where: { UserId: currentUser.id } } : {}
+  );
+
+  // All team records the server will return (only ones I'm a member of)
+  const { records: teamRecords, status: teamStatus } = useQuery<TeamRecord>('teams');
+
+  // All team_members for the active team (for TeamSettings member list)
+  const { records: activeTeamMemberRecords } = useQuery<TeamMemberRecord>(
+    'team_members',
+    activeTeamId ? { where: { TeamId: activeTeamId } } : {}
+  );
+
+  const { create: createTeam } = useMutations<TeamRecord>('teams');
+  const { create: createTeamMember } = useMutations<TeamMemberRecord>('team_members');
+
+  const myMemberships: TeamMember[] = useMemo(() =>
+    (myMembershipRecords || []).map(r => ({
+      id: r.recordId,
+      teamId: r.data.TeamId,
+      userId: r.data.UserId,
+      roleInTeam: r.data.RoleInTeam,
+      joinedAt: r.data.JoinedAt,
+      email: r.data.Email,
+      status: r.data.Status,
+      isPending: r.data.Status === 'invited',
+    })),
+    [myMembershipRecords]
+  );
+
+  const myTeams: Team[] = useMemo(() =>
+    (teamRecords || []).map(r => ({
+      id: r.recordId,
+      name: r.data.Name,
+      createdBy: r.data.CreatedBy,
+      isOpen: !!r.data.IsOpen,
+    })),
+    [teamRecords]
+  );
+
+  const activeTeam = useMemo(() => myTeams.find(t => t.id === activeTeamId) || null, [myTeams, activeTeamId]);
+
+  const activeTeamMembers: TeamMember[] = useMemo(() =>
+    (activeTeamMemberRecords || []).map(r => ({
+      id: r.recordId,
+      teamId: r.data.TeamId,
+      userId: r.data.UserId,
+      roleInTeam: r.data.RoleInTeam,
+      joinedAt: r.data.JoinedAt,
+      email: r.data.Email,
+      status: r.data.Status,
+      isPending: r.data.Status === 'invited',
+    })),
+    [activeTeamMemberRecords]
+  );
+
+  const myActiveMembership = useMemo(() =>
+    activeTeamMembers.find(m => m.userId === currentUser?.id) || null,
+    [activeTeamMembers, currentUser]
+  );
+
+  const isTeamAdmin = myActiveMembership?.roleInTeam === 'admin';
+
+  // Sync activeTeamId: if it's not in myTeams, fall back to first team
+  useEffect(() => {
+    if (membershipStatus === 'loading' || teamStatus === 'loading' || !currentUser) return;
+    if (myTeams.length === 0) {
+      setActiveTeamId(null);
+      localStorage.removeItem('taskspace_activeTeamId');
+      return;
+    }
+    if (!activeTeamId || !myTeams.find(t => t.id === activeTeamId)) {
+      const first = myTeams[0].id;
+      setActiveTeamId(first);
+      localStorage.setItem('taskspace_activeTeamId', first);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myTeams, currentUser, membershipStatus, teamStatus]);
+
+  const handleSelectTeam = useCallback((teamId: string) => {
+    setActiveTeamId(teamId);
+    localStorage.setItem('taskspace_activeTeamId', teamId);
+  }, []);
+
+  const handleCreateTeam = useCallback(async (name: string): Promise<string | null> => {
+    if (!currentUser) return null;
+    try {
+      const teamId = await createTeam({ Name: name, CreatedBy: currentUser.id, IsOpen: 1 });
+      await createTeamMember({
+        TeamId: teamId, UserId: currentUser.id, RoleInTeam: 'admin',
+        JoinedAt: Date.now(), Email: currentUser.email, Status: 'active',
+      });
+      setActiveTeamId(teamId);
+      localStorage.setItem('taskspace_activeTeamId', teamId);
+      return teamId;
+    } catch (err) {
+      console.error('[team] create failed:', err);
+      return null;
+    }
+  }, [currentUser, createTeam, createTeamMember]);
+
+  const handleJoinTeam = useCallback(async (teamId: string): Promise<boolean> => {
+    if (!currentUser) return false;
+    try {
+      const already = myMembershipRecords?.find(r => r.data.TeamId === teamId && r.data.UserId === currentUser.id);
+      if (already) { handleSelectTeam(teamId); return true; }
+      await createTeamMember({
+        TeamId: teamId, UserId: currentUser.id, RoleInTeam: 'member',
+        JoinedAt: Date.now(), Email: currentUser.email, Status: 'active',
+      });
+      setActiveTeamId(teamId);
+      localStorage.setItem('taskspace_activeTeamId', teamId);
+      return true;
+    } catch (err) {
+      console.error('[team] join failed:', err);
+      return false;
+    }
+  }, [currentUser, createTeamMember, myMembershipRecords, handleSelectTeam]);
+
+  const handleAddMember = useCallback(async (email: string): Promise<{ status: 'added' | 'invited' | 'already_member' | 'error'; teamId?: string }> => {
+    if (!activeTeamId) return { status: 'error' };
+    const existingRecord = (activeTeamMemberRecords || []).find(r => r.data.Email === email);
+    if (existingRecord) return { status: 'already_member' };
+    const targetUser = allUsers.find(u => u.email === email);
+    const isExistingUser = !!targetUser;
+    try {
+      await createTeamMember({
+        TeamId: activeTeamId,
+        UserId: targetUser?.id || '',
+        RoleInTeam: 'member',
+        JoinedAt: Date.now(),
+        Email: email,
+        Status: isExistingUser ? 'active' : 'invited',
+      });
+      return { status: isExistingUser ? 'added' : 'invited' };
+    } catch {
+      return { status: 'error' };
+    }
+  }, [activeTeamId, activeTeamMemberRecords, allUsers, createTeamMember]);
+
+  const handleChangeRole = useCallback(async (memberId: string, role: 'admin' | 'member') => {
+    const result = await callAction('changeMemberRole', { memberId, role });
+    if (!result.success) console.error('[team] change role failed:', result.error);
+  }, []);
+
+  const handleDeleteTeam = useCallback(async () => {
+    if (!activeTeamId) return;
+    const result = await callAction('deleteTeam', { teamId: activeTeamId });
+    if (!result.success) { console.error('[team] delete failed:', result.error); return; }
+    const next = myTeams.find(t => t.id !== activeTeamId);
+    const nextId = next?.id || null;
+    setActiveTeamId(nextId);
+    if (nextId) localStorage.setItem('taskspace_activeTeamId', nextId);
+    else localStorage.removeItem('taskspace_activeTeamId');
+    setShowTeamSettings(false);
+  }, [activeTeamId, myTeams]);
+
+  // Filter allUsers to active team members + pending invites (for task assignment / People sidebar)
+  const teamUserIds = useMemo(() =>
+    new Set(activeTeamMembers.filter(m => m.status === 'active').map(m => m.userId)),
+    [activeTeamMembers]
+  );
+  // Pending invites get a synthetic WidgetUser so they show up in People and can be assigned tasks.
+  // Their "id" is the team_member record ID — tasks assigned before they join use this synthetic id.
+  // Skip invites whose email already has an active membership (claimInvite may not have fired yet).
+  const activeTeamEmails = useMemo(() =>
+    new Set(activeTeamMembers.filter(m => m.status === 'active').map(m => m.email).filter(Boolean)),
+    [activeTeamMembers]
+  );
+  const pendingInviteUsers: WidgetUser[] = useMemo(() =>
+    activeTeamMembers
+      .filter(m => m.status === 'invited' && m.email && !activeTeamEmails.has(m.email))
+      .map(m => ({
+        id: m.id,
+        name: m.email.split('@')[0] || m.email,
+        email: m.email,
+        imageUrl: '',
+        color: getUserColor(m.id),
+        role: 'member',
+        isPending: true,
+      })),
+    [activeTeamMembers, activeTeamEmails]
+  );
+  const teamUsers = useMemo(() => [
+    ...allUsers.filter(u => teamUserIds.has(u.id)),
+    ...pendingInviteUsers,
+  ], [allUsers, teamUserIds, pendingInviteUsers]);
+
+  // ── Read-only + data loading ─────────────────────────────────────────────
   const isReadOnly = !platformUser || platformUser.role === 'viewer';
+  const teamDataLoading = membershipStatus === 'loading' || teamStatus === 'loading';
 
   const {
     isLoading: dataLoading,
@@ -94,13 +299,43 @@ export default function HomePage() {
     completeTask, moveTask, reorderTask, getTasksForView,
     addProject, updateProject, deleteProject, reorderProject,
     addTag, deleteTag, addTagToTask, removeTagFromTask,
-  } = useTaskData(currentUser);
+  } = useTaskData(currentUser, activeTeamId);
 
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
 
+  // handleRemoveMember lives here so it can access tasks/updateTask
+  const handleRemoveMember = useCallback(async (memberId: string, userId: string) => {
+    const result = await callAction('removeMember', { memberId });
+    if (!result.success) { console.error('[team] remove failed:', result.error); return; }
+    // Unassign tasks client-side:
+    // - real users: assignedUser.id === userId
+    // - pending invite users: assignedUser.id === memberId (their synthetic id)
+    (tasksRef.current || [])
+      .filter(t => t.assignedUser && (t.assignedUser.id === userId || t.assignedUser.id === memberId))
+      .forEach(t => updateTask(t.id, { assignedUser: null, assignedBy: null }));
+  }, [updateTask]);
+
+  // Auto-claim: when the current user has a pending invite in the active team (matched by email),
+  // reassign any tasks that were pre-assigned to the invite's synthetic id, then delete the invite record.
+  useEffect(() => {
+    if (!currentUser || !activeTeamId) return;
+    const myInvite = activeTeamMembers.find(
+      m => m.status === 'invited' && m.email === currentUser.email
+    );
+    if (!myInvite) return;
+    (tasksRef.current || [])
+      .filter(t => t.assignedUser?.id === myInvite.id)
+      .forEach(t => updateTask(t.id, {
+        assignedUser: { id: currentUser.id, name: currentUser.name, email: currentUser.email, color: currentUser.color },
+      }));
+    callAction('claimInvite', { inviteId: myInvite.id, teamId: activeTeamId }).catch(() => {});
+  }, [activeTeamMembers, currentUser, activeTeamId, updateTask]);
+
   const isMobile = useIsMobile();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [showTeamSettings, setShowTeamSettings] = useState(false);
+  const [teamOnboardingMode, setTeamOnboardingMode] = useState<null | 'create' | 'join'>(null);
   const [showChat, setShowChat] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -192,7 +427,6 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isResizeHovered, setIsResizeHovered] = useState(false);
   const [showReadOnlyBanner, setShowReadOnlyBanner] = useState(true);
-  const [showReadOnlyAuth, setShowReadOnlyAuth] = useState(false);
   const [isDetailResizeHovered, setIsDetailResizeHovered] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
 
@@ -300,8 +534,8 @@ export default function HomePage() {
   }, []);
   const handleSelectAllKanbanStatuses = useCallback(() => setSelectedKanbanStatuses(null), []);
   const handleToggleUser = useCallback((userId: string) => {
-    setSelectedUserIds(prev => toggleNullableMultiSelect(prev, (allUsers || []).map(u => u.id), userId));
-  }, [allUsers]);
+    setSelectedUserIds(prev => toggleNullableMultiSelect(prev, (teamUsers || []).map(u => u.id), userId));
+  }, [teamUsers]);
   const handleSelectAllUsers = useCallback(() => setSelectedUserIds(null), []);
   const handleResetFilters = useCallback(() => {
     setShowCompleted(false); setShowUnassigned(true);
@@ -312,8 +546,8 @@ export default function HomePage() {
   const currentProject = currentView.type === VIEWS.PROJECT ? projects?.find(p => p.id === currentView.id) || null : null;
   const currentUserForView = useMemo(() => {
     if (currentView.type !== VIEWS.USER || currentView.id === 'unassigned') return null;
-    return allUsers.find(u => u.id === currentView.id) || null;
-  }, [currentView.type, currentView.id, allUsers]);
+    return teamUsers.find(u => u.id === currentView.id) || null;
+  }, [currentView.type, currentView.id, teamUsers]);
 
   const handleQuickAdd = useCallback(async (taskData: Partial<Task>) => {
     const today = new Date().toISOString().split('T')[0];
@@ -420,14 +654,14 @@ export default function HomePage() {
     if (userId === null) {
       toUpdate.forEach(id => updateTask(id, { assignedUser: null, assignedBy: null }));
     } else {
-      const targetUser = allUsers.find(u => u.id === userId);
+      const targetUser = teamUsers.find(u => u.id === userId);
       if (!targetUser) return;
       const assignedUserData = { id: targetUser.id, name: targetUser.name, email: targetUser.email, color: targetUser.color };
       const assignerData = currentUser ? { id: currentUser.id, name: currentUser.name, email: currentUser.email, color: currentUser.color } : null;
       toUpdate.forEach(id => updateTask(id, { assignedUser: assignedUserData, assignedBy: assignerData }));
     }
     if (toUpdate.length > 1) clearSelection();
-  }, [allUsers, currentUser, updateTask, selectedTaskIds, clearSelection]);
+  }, [teamUsers, currentUser, updateTask, selectedTaskIds, clearSelection]);
 
   useTaskHotkeys({ selectedTaskIds, displayedTasks, clearSelection, setSelectedTaskIds, onDeleteSelected: handleBulkDelete });
 
@@ -473,7 +707,14 @@ export default function HomePage() {
     return null;
   }, [addProject, updateTask]);
 
-  if (userLoading || dataLoading) return null;
+  if (userLoading || teamDataLoading) return null;
+
+  // If signed in but has no teams yet, show the onboarding gate
+  if (currentUser && myTeams.length === 0) {
+    return <TeamOnboarding onCreate={handleCreateTeam} onJoin={handleJoinTeam} />;
+  }
+
+  if (dataLoading) return null;
 
   return (
     <div data-app-container data-testid="app-container" style={{
@@ -491,10 +732,21 @@ export default function HomePage() {
         onTaskDrop={isReadOnly ? undefined : handleTaskDropOnProject}
         onTaskDropOnUser={isReadOnly ? undefined : handleTaskDropOnUser}
         onTaskDragEnd={isReadOnly ? undefined : dragHandlers.onDragEnd}
-        allUsers={allUsers} currentUser={currentUser} width={sidebarResize.width}
-        getDisplayName={getDisplayName} isReadOnly={isReadOnly}
-        onSignIn={!platformUser ? () => setShowReadOnlyAuth(true) : undefined}
-        isMobile={isMobile} isMobileOpen={mobileSidebarOpen} onMobileClose={handleMobileSidebarClose} />
+        allUsers={teamUsers} currentUser={currentUser}
+        onManageUsers={activeTeamId ? () => setShowTeamSettings(true) : undefined}
+        width={sidebarResize.width} getDisplayName={getDisplayName} isReadOnly={isReadOnly}
+isMobile={isMobile} isMobileOpen={mobileSidebarOpen} onMobileClose={handleMobileSidebarClose}
+        teamSelector={currentUser && myTeams.length > 0 ? (
+          <TeamSelector
+            teams={myTeams}
+            selectedTeamId={activeTeamId || ''}
+            onSelectTeam={handleSelectTeam}
+            onCreateTeam={() => setTeamOnboardingMode('create')}
+            onJoinTeam={() => setTeamOnboardingMode('join')}
+            onOpenSettings={() => setShowTeamSettings(true)}
+          />
+        ) : undefined}
+      />
 
       <div data-resize-handle onMouseDown={sidebarResize.startResize}
         onMouseEnter={() => setIsResizeHovered(true)} onMouseLeave={() => setIsResizeHovered(false)}
@@ -505,15 +757,9 @@ export default function HomePage() {
       <div style={styles.main}>
         <div style={styles.contentWrapper}>
           <div style={styles.taskListArea}>
-            {isReadOnly && showReadOnlyBanner && (!platformUser ? (
-              <ReadOnlyBanner
-                mode="anonymous"
-                onClose={handleCloseReadOnlyBanner}
-                onSignIn={() => setShowReadOnlyAuth(true)}
-              />
-            ) : (
+            {isReadOnly && showReadOnlyBanner && (
               <ReadOnlyBanner mode="viewer" onClose={handleCloseReadOnlyBanner} />
-            ))}
+            )}
 
             <ViewHeader view={currentView} project={currentProject} user={currentUserForView}
               taskCount={displayedTasks.length} taskCountData={displayedTaskCounts}
@@ -528,7 +774,7 @@ export default function HomePage() {
               selectedTagIds={selectedTagIds} onToggleTag={handleToggleTag} onSelectAllTags={handleSelectAllTags}
               selectedKanbanStatuses={selectedKanbanStatuses} onToggleKanbanStatus={handleToggleKanbanStatus}
               onSelectAllKanbanStatuses={handleSelectAllKanbanStatuses}
-              allUsers={allUsers} selectedUserIds={selectedUserIds} onToggleUser={handleToggleUser}
+              allUsers={teamUsers} selectedUserIds={selectedUserIds} onToggleUser={handleToggleUser}
               onSelectAllUsers={handleSelectAllUsers} onResetFilters={handleResetFilters}
               isAllView={currentView.type === VIEWS.ALL} isProjectView={currentView.type === VIEWS.PROJECT}
               isUserView={currentView.type === VIEWS.USER}
@@ -555,7 +801,7 @@ export default function HomePage() {
                 emptyMessage={getEmptyMessage()} groupByDate={currentView.type === VIEWS.UPCOMING}
                 draggedItem={draggedItem || null} dragOverItem={dragOverItem || null}
                 dragHandlers={isReadOnly ? {} : dragHandlers}
-                getDisplayName={getDisplayName} allUsers={allUsers} isReadOnly={isReadOnly} />
+                getDisplayName={getDisplayName} allUsers={teamUsers} isReadOnly={isReadOnly} />
               {!isReadOnly && currentView.type !== VIEWS.LOGBOOK && currentView.type !== VIEWS.TRASH && (
                 <QuickAdd onAdd={handleQuickAdd} placeholder={getPlaceholder()} />
               )}
@@ -575,7 +821,7 @@ export default function HomePage() {
               style={styles.detailResizeHandle}>
               <div style={{ ...styles.detailResizeHandleLine, ...((detailResize.isResizing || isDetailResizeHovered) ? styles.detailResizeHandleLineActive : {}) }} />
             </div>
-            <TaskDetail task={selectedTask} projects={projects} allUsers={allUsers} tags={tags}
+            <TaskDetail task={selectedTask} projects={projects} allUsers={teamUsers} tags={tags}
               onUpdate={isReadOnly ? undefined : updateTask} onDelete={isReadOnly ? undefined : handleDeleteAndClear}
               onRestore={isReadOnly ? undefined : handleRestoreAndClear}
               onPermanentDelete={isReadOnly ? undefined : handlePermanentDeleteAndClear}
@@ -648,6 +894,31 @@ export default function HomePage() {
             )}
           </div>
         </>
+      )}
+
+      <TeamSettings
+        isOpen={showTeamSettings}
+        onClose={() => setShowTeamSettings(false)}
+        team={activeTeam}
+        members={activeTeamMembers}
+        currentUserId={currentUser?.id || ''}
+        isTeamAdmin={isTeamAdmin}
+        roomUsers={allUsers}
+        onAddMember={handleAddMember}
+        onRemoveMember={handleRemoveMember}
+        onChangeRole={handleChangeRole}
+        onDeleteTeam={handleDeleteTeam}
+      />
+
+      {teamOnboardingMode && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 500, background: '#F5F5F7' }}>
+          <TeamOnboarding
+            mode={teamOnboardingMode}
+            onCreate={handleCreateTeam}
+            onJoin={handleJoinTeam}
+            onClose={() => setTeamOnboardingMode(null)}
+          />
+        </div>
       )}
 
       {showNewProjectInput && (
@@ -724,10 +995,6 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-      )}
-
-      {showReadOnlyAuth && (
-        <AuthOverlay onClose={() => setShowReadOnlyAuth(false)} />
       )}
 
       {/* AI Chat floating button — hidden while the panel is open */}

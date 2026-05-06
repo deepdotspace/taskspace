@@ -3,6 +3,7 @@ import type { CollectionSchema } from 'deepspace/worker'
 export const tasksSchema: CollectionSchema = {
   name: 'tasks',
   columns: [
+    { name: 'TeamId', storage: 'text', interpretation: 'plain' },
     { name: 'Title', storage: 'text', interpretation: 'plain' },
     { name: 'Notes', storage: 'text', interpretation: 'plain' },
     { name: 'Completed', storage: 'number', interpretation: 'plain' },
@@ -19,9 +20,10 @@ export const tasksSchema: CollectionSchema = {
     { name: 'TagIds', storage: 'text', interpretation: 'json' },
     { name: 'CreatedAt', storage: 'number', interpretation: 'plain' },
   ],
+  teamField: 'TeamId',
   permissions: {
-    viewer: { read: true, create: false, update: false, delete: false },
-    member: { read: true, create: true, update: true, delete: true },
+    viewer: { read: false, create: false, update: false, delete: false },
+    member: { read: 'team', create: true, update: 'team', delete: 'team' },
     admin:  { read: true, create: true, update: true, delete: true },
   },
 }
