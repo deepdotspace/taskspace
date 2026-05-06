@@ -456,7 +456,7 @@ export function useTaskData(currentUser: WidgetUser | null, teamId: string | nul
         ...existing.data,
         Completed: isCompleting ? 1 : 0,
         CompletedAt: isCompleting ? Date.now() : null,
-        KanbanStatus: isCompleting ? 'done' : (existing.data.KanbanStatus || 'backlog'),
+        KanbanStatus: isCompleting ? 'done' : 'in_progress',
       });
     },
     [putTask]
