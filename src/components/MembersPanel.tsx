@@ -68,7 +68,7 @@ export function MembersPanel({ isOpen, onClose, users, currentUserId, isAdmin, o
                 {/* Avatar */}
                 <div style={{ ...s.avatar, backgroundColor: getUserColor(user.id) }}>
                   {user.imageUrl
-                    ? <img src={user.imageUrl} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                    ? <img src={user.imageUrl} alt="" referrerPolicy="no-referrer" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
                     : (user.name?.[0] || '?').toUpperCase()
                   }
                 </div>

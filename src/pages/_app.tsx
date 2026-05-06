@@ -44,22 +44,18 @@ function AuthGate({ children }: { children: ReactNode }) {
     )
   }
 
-  if (!isSignedIn) {
-    return (
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        minHeight: '100vh', background: '#F5F5F7',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif',
-      }}>
-        <AuthOverlay />
-      </div>
-    )
-  }
-
   return (
-    <RecordProvider>
+    <RecordProvider allowAnonymous>
       <RecordScope roomId={SCOPE_ID} schemas={schemas} appId={APP_NAME}>
-        {children}
+        {isSignedIn ? children : (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            minHeight: '100vh', background: '#F5F5F7',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif',
+          }}>
+            <AuthOverlay />
+          </div>
+        )}
       </RecordScope>
     </RecordProvider>
   )

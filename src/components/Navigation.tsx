@@ -76,7 +76,7 @@ export default function Navigation() {
                 >
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground overflow-hidden">
                     {user.imageUrl ? (
-                      <img src={user.imageUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
+                      <img src={user.imageUrl} alt="" referrerPolicy="no-referrer" className="h-6 w-6 rounded-full object-cover" />
                     ) : (
                       user.name?.[0]?.toUpperCase() ?? '?'
                     )}

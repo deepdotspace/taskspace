@@ -761,7 +761,7 @@ function Sidebar(props: SidebarProps) {
               backgroundColor: currentUser.color || '#6366f1',
             }}>
               {currentUser.imageUrl ? (
-                <img src={currentUser.imageUrl} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
+                <img src={currentUser.imageUrl} alt="" referrerPolicy="no-referrer" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
               ) : (
                 (currentUser.name?.[0] || '?').toUpperCase()
               )}
