@@ -17,6 +17,29 @@ async function getCallerMembership(
 export const actions: Record<string, ActionHandler> = {
 
   /**
+   * Look up a user by email. Runs as the app, bypassing user RBAC, so the
+   * inviter can locate users they don't yet share a team with.
+   * Returns { id, email, name } or null if not found.
+   */
+  lookupUserByEmail: async ({ params, tools }) => {
+    const { email } = params as { email: string }
+    if (!email) return { success: false, error: 'Missing email' }
+    const res = await tools.query('users', { where: { email } })
+    if (!res.success) return { success: false, error: 'Lookup failed' }
+    const records = (res.data as { records: Envelope[] }).records
+    const user = records[0]
+    if (!user) return { success: true, data: null }
+    return {
+      success: true,
+      data: {
+        id: user.recordId,
+        email: user.data.email as string,
+        name: (user.data.name as string) || '',
+      },
+    }
+  },
+
+  /**
    * Remove a team member.
    * Caller must have roleInTeam === 'admin' for the same team.
    */

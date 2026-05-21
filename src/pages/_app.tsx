@@ -13,7 +13,7 @@ import { DeepSpaceAuthProvider, useAuth, AuthOverlay } from 'deepspace'
 import { RecordProvider, RecordScope } from 'deepspace'
 import { ToastProvider } from '../components/ui'
 import { APP_NAME, SCOPE_ID } from '../constants'
-import { schemas } from '../schemas'
+import { appSchemas } from '../schemas'
 
 export default function App() {
   return (
@@ -46,7 +46,7 @@ function AuthGate({ children }: { children: ReactNode }) {
 
   return (
     <RecordProvider allowAnonymous>
-      <RecordScope roomId={SCOPE_ID} schemas={schemas} appId={APP_NAME}>
+      <RecordScope roomId={SCOPE_ID} schemas={appSchemas} appId={APP_NAME}>
         {isSignedIn ? children : (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
