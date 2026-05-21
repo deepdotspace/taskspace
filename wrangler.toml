@@ -23,7 +23,7 @@ bindings = [
 
 [[r2_buckets]]
 binding = "FILES"
-bucket_name = "taskspace-files"
+bucket_name = "auto"
 
 [vars]
 APP_NAME = "taskspace"
