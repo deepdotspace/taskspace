@@ -8,17 +8,12 @@
  *   - Auth proxy → auth-worker (same-origin cookies)
  *   - Server actions (app-defined, bypass user RBAC)
  *   - Scoped R2 file storage
- *   - HMAC-authenticated cron
  *   - Static asset serving with SPA fallback
  */
 
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import {
-  verifyJwt,
-  verifyInternalSignature,
-  buildInternalPayload,
-} from 'deepspace/worker'
+import { verifyJwt } from 'deepspace/worker'
 import type { JwtVerifierConfig, VerifyResult } from 'deepspace/worker'
 import {
   RecordRoom,
@@ -31,7 +26,6 @@ import {
 } from 'deepspace/worker'
 import type { ActionTools, ActionResult, DOManifest, DOBindings, UserAttachment } from 'deepspace/worker'
 import { actions } from './src/actions/index.js'
-import { handleCron } from './src/cron.js'
 import { schemas } from './src/schemas.js'
 import { registerAiChatRoutes } from './src/ai/chat-routes.js'
 
@@ -191,7 +185,6 @@ export interface Env extends DOBindings<typeof __DO_MANIFEST__> {
   APP_NAME: string
   OWNER_USER_ID: string
   APP_OWNER_JWT: string
-  INTERNAL_STORAGE_HMAC_SECRET: string
 }
 
 export type AppContext = { Bindings: Env }
@@ -415,23 +408,6 @@ function getR2Handler(env: Env): ScopedR2Handler {
 app.all('/api/files/*', async (c) => {
   const auth = await resolveAuth(c.req.raw, c.env)
   return getR2Handler(c.env)(c.req.raw, new URL(c.req.url), c.env.FILES, { userId: auth?.userId ?? null })
-})
-
-// ---------------------------------------------------------------------------
-// Internal cron (HMAC-authenticated)
-// ---------------------------------------------------------------------------
-
-app.post('/internal/cron', async (c) => {
-  const body = await c.req.text()
-  const valid = await verifyInternalSignature({
-    secret: c.env.INTERNAL_STORAGE_HMAC_SECRET,
-    payload: buildInternalPayload(body),
-    signature: c.req.header('x-internal-signature') ?? '',
-    timestamp: c.req.header('x-internal-timestamp') ?? '',
-  })
-  if (!valid) return c.json({ error: 'Forbidden' }, 403)
-  await handleCron(JSON.parse(body))
-  return c.json({ ok: true })
 })
 
 // ---------------------------------------------------------------------------

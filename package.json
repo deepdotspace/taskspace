@@ -37,7 +37,7 @@
     "ai": "^6.0.175",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
-    "deepspace": "file:/Users/yukewu/Desktop/deepspace-sdk/packages/deepspace",
+    "deepspace": "^0.4.0",
     "framer-motion": "^11.15.0",
     "highlight.js": "^11.11.1",
     "hono": "^4.7.0",
