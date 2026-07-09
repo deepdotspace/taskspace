@@ -19,7 +19,9 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.75",
+    "@ai-sdk/anthropic": "^2.0.85",
+    "@ai-sdk/openai": "^2.0.110",
+    "@ai-sdk/openai-compatible": "^1.0.42",
     "@generouted/react-router": "^1.20.0",
     "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-checkbox": "^1.1.0",
@@ -34,10 +36,10 @@
     "@radix-ui/react-switch": "^1.1.0",
     "@radix-ui/react-tabs": "^1.1.0",
     "@radix-ui/react-tooltip": "^1.1.0",
-    "ai": "^6.0.175",
+    "ai": "^5.0.210",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
-    "deepspace": "^0.4.0",
+    "deepspace": "^0.4.5",
     "framer-motion": "^11.15.0",
     "highlight.js": "^11.11.1",
     "hono": "^4.7.0",

@@ -24,7 +24,16 @@ import {
   createScopedR2Handler,
   type ScopedR2Handler,
 } from 'deepspace/worker'
-import type { ActionTools, ActionResult, DOManifest, DOBindings, UserAttachment } from 'deepspace/worker'
+import type {
+  ActionTools,
+  ActionResult,
+  GetActionData,
+  QueryActionData,
+  MutateActionData,
+  DOManifest,
+  DOBindings,
+  UserAttachment,
+} from 'deepspace/worker'
 import { actions } from './src/actions/index.js'
 import { schemas } from './src/schemas.js'
 import { registerAiChatRoutes } from './src/ai/chat-routes.js'
@@ -382,7 +391,7 @@ app.post('/api/actions/:name', async (c) => {
   const params = await c.req.json<Record<string, unknown>>()
   const callerJwt = c.req.header('Authorization')!.slice(7)
   const tools = createActionTools(c.env, auth.userId, callerJwt)
-  const result = await action({ userId: auth.userId, params, tools, env: c.env as unknown as Record<string, unknown> })
+  const result = await action({ userId: auth.userId, params, tools, env: c.env as unknown as Record<string, unknown>, callerJwt })
   return c.json(result as unknown as Record<string, unknown>)
 })
 
@@ -431,7 +440,7 @@ app.get('*', async (c) => {
 function createActionTools(env: Env, userId: string, callerJwt: string): ActionTools {
   const stub = env.RECORD_ROOMS.get(env.RECORD_ROOMS.idFromName(`app:${env.APP_NAME}`))
 
-  async function execTool(tool: string, params: Record<string, unknown>): Promise<ActionResult> {
+  async function execTool<T>(tool: string, params: Record<string, unknown>): Promise<ActionResult<T>> {
     const res = await stub.fetch(new Request('https://internal/api/tools/execute', {
       method: 'POST',
       headers: {
@@ -441,10 +450,10 @@ function createActionTools(env: Env, userId: string, callerJwt: string): ActionT
       },
       body: JSON.stringify({ tool, params }),
     }))
-    return res.json() as Promise<ActionResult>
+    return res.json() as Promise<ActionResult<T>>
   }
 
-  async function callIntegration(endpoint: string, data?: unknown): Promise<ActionResult> {
+  async function callIntegration<T = unknown>(endpoint: string, data?: unknown): Promise<ActionResult<T>> {
     const targetUrl = env.API_WORKER
       ? `https://api-worker.internal/api/integrations/${endpoint}`
       : `${env.API_WORKER_URL ?? ''}/api/integrations/${endpoint}`
@@ -456,16 +465,31 @@ function createActionTools(env: Env, userId: string, callerJwt: string): ActionT
       },
       body: data != null ? JSON.stringify(data) : undefined,
     })
-    return res.json() as Promise<ActionResult>
+    return res.json() as Promise<ActionResult<T>>
   }
 
   return {
-    create: (collection, data) => execTool('records.create', { collection, data }),
-    update: (collection, recordId, data) => execTool('records.update', { collection, recordId, data }),
-    remove: (collection, recordId) => execTool('records.delete', { collection, recordId }),
-    get: (collection, recordId) => execTool('records.get', { collection, recordId }),
-    query: (collection, options) => execTool('records.query', { collection, ...options }),
+    create: (collection, data, recordId) =>
+      execTool<MutateActionData>('records.create', {
+        collection,
+        data,
+        ...(recordId !== undefined ? { recordId } : {}),
+      }),
+    update: (collection, recordId, data) =>
+      execTool<MutateActionData>('records.update', { collection, recordId, data }),
+    remove: (collection, recordId) =>
+      execTool<MutateActionData>('records.delete', { collection, recordId }),
+    get: <T extends Record<string, unknown> = Record<string, unknown>>(collection: string, recordId: string) =>
+      execTool<GetActionData<T>>('records.get', { collection, recordId }),
+    query: <T extends Record<string, unknown> = Record<string, unknown>>(
+      collection: string,
+      options?: { where?: Record<string, unknown>; orderBy?: string; orderDir?: 'asc' | 'desc'; limit?: number },
+    ) => execTool<QueryActionData<T>>('records.query', { collection, ...options }),
     integration: callIntegration,
+    registerUser: (opts) =>
+      execTool<{
+        user: { id: string; name: string; email: string; imageUrl?: string; role: string }
+      }>('users.register', { ...opts }),
   }
 }
 

@@ -276,7 +276,6 @@ export function registerAiChatRoutes(
         console.error('[ai-chat] streamText error:', error)
       },
       onFinish: async ({ text, response }) => {
-        // @ts-ignore — ai-sdk type version mismatch between deepspace/worker and local install; safe at runtime
         const parts = buildUiParts(response.messages)
         if (text.trim() === '' && parts.length === 0) {
           console.warn('[ai-chat] FINISH empty turn, skipping persist')

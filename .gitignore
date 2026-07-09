@@ -4,3 +4,5 @@ dist
 .dev.vars
 .worker-bundle.js
 *.tgz
+.claude/
+test-results/

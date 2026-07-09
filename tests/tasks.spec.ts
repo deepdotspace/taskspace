@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test'
-import { signUp } from './helpers/auth'
+import { signUp, enterWorkspace } from './helpers/auth'
 import { captureConsoleErrors } from './helpers/errors'
 
 test.describe('Task CRUD', () => {
   test.beforeEach(async ({ page }) => {
     await signUp(page, 'alice-1777048251@deepspace.test', { password: 'Pass123!', name: 'Alice' })
-    await page.waitForSelector('[data-testid="app-container"]', { timeout: 15000 })
+    await enterWorkspace(page)
   })
 
   test('create a task via quick add', async ({ page }) => {

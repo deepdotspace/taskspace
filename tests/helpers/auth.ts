@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 
-const AUTH_BASE = 'http://localhost:5174'
+const AUTH_BASE = `http://localhost:${process.env.TEST_PORT ?? 5174}`
 
 /**
  * Sign up a new user on the dev auth worker. Returns the user ID.
@@ -53,6 +53,34 @@ export async function signOut(page: Page) {
     await fetch('/api/auth/sign-out', { method: 'POST' })
   })
   await page.reload()
+}
+
+/**
+ * Get a signed-in user into the team workspace. New accounts land on the
+ * team-onboarding gate ("Welcome to Task Manager") — create a team there
+ * so `app-container` renders. Idempotent for users who already have a team.
+ */
+export async function enterWorkspace(page: Page, teamName = 'Test Team') {
+  await page.goto('/home')
+  const appContainer = page.getByTestId('app-container')
+  const gate = page.getByText('Welcome to Taskspace')
+  await appContainer.or(gate).first().waitFor({ state: 'visible', timeout: 15000 })
+
+  if (await gate.isVisible()) {
+    // The gate can flash while team records stream in for a user who already
+    // has a team — give app-container a moment to supersede it before
+    // committing to the create-team flow.
+    const settled = await appContainer
+      .waitFor({ state: 'visible', timeout: 3000 })
+      .then(() => true)
+      .catch(() => false)
+    if (!settled) {
+      await page.getByRole('button', { name: 'Create a New Team' }).click()
+      await page.getByPlaceholder('e.g. Engineering, Design, Marketing').fill(teamName)
+      await page.getByRole('button', { name: 'Create Team' }).click()
+      await appContainer.waitFor({ state: 'visible', timeout: 15000 })
+    }
+  }
 }
 
 /**

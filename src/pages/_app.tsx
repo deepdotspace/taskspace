@@ -8,12 +8,18 @@
  */
 
 import { Suspense, type ReactNode } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { DeepSpaceAuthProvider, useAuth, AuthOverlay } from 'deepspace'
 import { RecordProvider, RecordScope } from 'deepspace'
 import { ToastProvider } from '../components/ui'
 import { APP_NAME, SCOPE_ID } from '../constants'
 import { appSchemas } from '../schemas'
+
+/**
+ * Routes that require a signed-in user (the workspace). Everything else —
+ * landing, legal pages, the 404 catch-all — renders for signed-out visitors.
+ */
+const PROTECTED_PATHS = ['/home']
 
 export default function App() {
   return (
@@ -31,6 +37,14 @@ export default function App() {
 
 function AuthGate({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth()
+  const { pathname } = useLocation()
+  const isPublic = !PROTECTED_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  )
+
+  // Public pages (landing, terms) render immediately — no auth wait, no
+  // records connection needed.
+  if (isPublic && (!isLoaded || !isSignedIn)) return <>{children}</>
 
   if (!isLoaded) {
     return (

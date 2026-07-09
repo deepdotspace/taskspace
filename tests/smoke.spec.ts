@@ -1,34 +1,32 @@
 import { test, expect } from '@playwright/test'
 import { captureConsoleErrors } from './helpers/errors'
 
-/**
- * Wait for the React app to mount. The task manager shows either:
- * - "Loading..." while auth initializes
- * - The sidebar once ready (even for anonymous users)
- */
-async function waitForApp(page: import('@playwright/test').Page) {
-  // Wait for either the task manager container or the auth loading to resolve
-  await page.waitForSelector('[data-testid="app-container"], [data-testid="sidebar"]', { timeout: 15000 })
-}
-
 test.describe('Smoke tests', () => {
-  test('app loads without JS errors', async ({ page }) => {
+  test('landing page renders for signed-out visitors without JS errors', async ({ page }) => {
     const errors = captureConsoleErrors(page)
     await page.goto('/')
-    await waitForApp(page)
+    await expect(page.getByRole('heading', { name: 'Team tasks. Zero clutter.' })).toBeVisible({ timeout: 15000 })
     expect(errors).toEqual([])
   })
 
-  test('navigation is visible', async ({ page }) => {
+  test('landing has primary CTA and required footer links', async ({ page }) => {
     await page.goto('/')
-    await waitForApp(page)
-    await expect(page.getByTestId('sidebar')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Start free' })).toBeVisible({ timeout: 15000 })
+    const footer = page.locator('footer')
+    await expect(footer.getByRole('link', { name: 'Terms' })).toBeVisible()
+    await expect(footer.getByRole('link', { name: 'Contact' })).toBeVisible()
+    await expect(footer.getByRole('link', { name: 'Follow on X' })).toBeVisible()
+    await expect(footer.getByText(/© \d{4} DeepSpace/)).toBeVisible()
   })
 
-  test('sign-in button visible when logged out', async ({ page }) => {
-    await page.goto('/')
-    await waitForApp(page)
-    await expect(page.getByTestId('read-only-sign-in-button')).toBeVisible()
+  test('terms page renders', async ({ page }) => {
+    await page.goto('/terms')
+    await expect(page.getByRole('heading', { name: 'Terms of Service' })).toBeVisible({ timeout: 15000 })
+  })
+
+  test('signed-out visitor hitting the app is asked to sign in', async ({ page }) => {
+    await page.goto('/home')
+    await expect(page.getByText('Sign in to DeepSpace')).toBeVisible({ timeout: 15000 })
   })
 
   test('unknown route shows 404', async ({ page }) => {

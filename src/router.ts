@@ -7,6 +7,7 @@ export type Path =
   | `*`
   | `/`
   | `/home`
+  | `/terms`
 
 export type Params = {
   '/*': { '*': string }

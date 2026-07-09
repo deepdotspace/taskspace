@@ -642,7 +642,7 @@ function Sidebar(props: SidebarProps) {
       style={{ ...styles.sidebar, width: isMobile ? 280 : width }}
     >
       <div style={{ ...styles.sidebarHeader, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 15, fontWeight: 600, color: '#1D1D1F' }}>Task Manager</span>
+        <span style={{ fontSize: 15, fontWeight: 600, color: '#1D1D1F' }}>Taskspace</span>
         {/* Close button — visible only on mobile via CSS */}
         {onMobileClose && (
           <button className="mobile-sidebar-close" onClick={onMobileClose} aria-label="Close sidebar">

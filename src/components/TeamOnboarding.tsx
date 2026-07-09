@@ -77,7 +77,7 @@ export function TeamOnboarding({ onCreate, onJoin, onClose, mode: initialMode = 
           <>
             <div style={s.header}>
               <Icon name="users" size={28} color="#007AFF" />
-              <h2 style={s.title}>Welcome to Task Manager</h2>
+              <h2 style={s.title}>Welcome to Taskspace</h2>
               <p style={s.subtitle}>Create a team to get started, or join an existing one.</p>
             </div>
             <div style={s.optionList}>

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { signUp } from './helpers/auth'
+import { signUp, enterWorkspace } from './helpers/auth'
 
 test.describe('API tests', () => {
   test('auth proxy forwards to auth worker', async ({ request }) => {
@@ -8,9 +8,10 @@ test.describe('API tests', () => {
   })
 
   test('WebSocket endpoint exists', async ({ page }) => {
-    await page.goto('/')
-    // Wait for the task manager app to connect its WebSocket
-    await page.waitForSelector('[data-testid="app-container"], [data-testid="sidebar"]', { timeout: 15000 })
+    // The workspace requires sign-in + a team; once app-container renders,
+    // the app has connected its RecordRoom WebSocket.
+    await signUp(page, 'alice-1777048251@deepspace.test', { password: 'Pass123!', name: 'Alice' })
+    await enterWorkspace(page)
   })
 })
 
@@ -29,7 +30,7 @@ test.describe('AI chat API', () => {
 
   test('authenticated user can create and use a chat', async ({ page }) => {
     await signUp(page, 'alice-1777048251@deepspace.test', { password: 'Pass123!', name: 'Alice' })
-    await page.waitForSelector('[data-testid="app-container"]', { timeout: 15000 })
+    await enterWorkspace(page)
 
     const result = await page.evaluate(async () => {
       // Exchange session cookie for a Bearer JWT (same flow as the app)
