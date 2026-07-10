@@ -37,6 +37,7 @@ import {
   decodeAiStreamChunk,
   type AiStreamAction,
 } from 'deepspace'
+import { T } from '../utils/styles'
 
 type ModelOption = { id: string; label: string; provider: string }
 
@@ -593,13 +594,16 @@ export function ChatPanel({
     isLoading && lastMessage?.role === 'assistant' ? lastMessage.id : null
   const waitingForAssistant = isLoading && lastMessage?.role === 'user'
 
-  const outerPx = compact ? 'px-4' : 'px-6'
-  const textSize = compact ? 'text-[13px]' : 'text-[14px]'
-  const turnGap = compact ? 'gap-6' : 'gap-8'
+  // Design 9 "Momentum" dock: compact scale (13px body, ~20px turn gap).
+  // `compact` tightens horizontal padding + turn gap a hair for the very
+  // narrowest mounts; the base already matches the dock spec.
+  const outerPx = compact ? 14 : 16
+  const turnGap = compact ? 18 : 20
 
   return (
     <div
-      className={`relative flex h-full min-h-0 flex-col bg-background text-foreground ${textSize} ${className ?? ''}`}
+      className={`relative flex h-full min-h-0 flex-col ${className ?? ''}`}
+      style={{ fontFamily: T.font, fontSize: 13, color: T.textPrimary, background: 'transparent' }}
     >
       {header && <div className="shrink-0">{header}</div>}
 
@@ -611,12 +615,13 @@ export function ChatPanel({
         aria-live="polite"
         aria-atomic="false"
         aria-label="Assistant conversation"
-        className={`min-h-0 flex-1 overflow-y-auto ${outerPx} py-8`}
+        className="min-h-0 flex-1 overflow-y-auto"
+        style={{ padding: `20px ${outerPx}px` }}
       >
         {messages.length === 0 ? (
           <EmptyState prompts={prompts} onPick={onPickPrompt} />
         ) : (
-          <div className={`mx-auto flex max-w-[44rem] flex-col ${turnGap}`}>
+          <div className="mx-auto flex max-w-[44rem] flex-col" style={{ gap: turnGap }}>
             {messages.map((m) => (
               <MessageTurn
                 key={m.id}
@@ -632,14 +637,32 @@ export function ChatPanel({
       </div>
 
       {error && (
-        <div className={`mx-auto mb-2 w-full max-w-[44rem] ${outerPx}`} role="alert">
-          <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive">
+        <div className="mx-auto mb-2 w-full max-w-[44rem]" style={{ padding: `0 ${outerPx}px` }} role="alert">
+          <div
+            className="flex items-start gap-2"
+            style={{
+              borderRadius: 10,
+              border: `1px solid ${T.redSoft}`,
+              background: T.redSoft,
+              padding: '8px 12px',
+              color: '#B4232A',
+            }}
+          >
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            <div className="flex-1 text-[13px] leading-relaxed">{error.message}</div>
+            <div className="flex-1" style={{ fontSize: 12.5, lineHeight: 1.5 }}>{error.message}</div>
             <button
               type="button"
               onClick={retry}
-              className="rounded-md border border-destructive/30 px-2 py-0.5 text-[12px] font-medium transition-colors hover:bg-destructive/10"
+              style={{
+                borderRadius: 7,
+                border: '1px solid rgba(180,35,42,0.3)',
+                padding: '2px 9px',
+                fontSize: 12,
+                fontWeight: 500,
+                color: '#B4232A',
+                background: 'transparent',
+                cursor: 'pointer',
+              }}
             >
               Retry
             </button>
@@ -647,7 +670,10 @@ export function ChatPanel({
         </div>
       )}
 
-      <div className={`shrink-0 border-t border-border/60 ${outerPx} pb-4 pt-3`}>
+      <div
+        className="shrink-0"
+        style={{ borderTop: `1px solid ${T.borderRowLight}`, padding: `12px ${outerPx}px 16px` }}
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -655,7 +681,16 @@ export function ChatPanel({
           }}
           className="mx-auto w-full max-w-[44rem]"
         >
-          <div className="relative rounded-2xl border border-border bg-background transition-colors focus-within:border-foreground/25 focus-within:ring-4 focus-within:ring-foreground/[0.04]">
+          <div
+            className="relative"
+            style={{
+              borderRadius: 15,
+              border: `1px solid ${T.borderCard}`,
+              background: '#fff',
+              boxShadow: T.shadowCard,
+              transition: 'border-color 0.15s ease',
+            }}
+          >
             <textarea
               ref={inputRef}
               rows={1}
@@ -664,10 +699,17 @@ export function ChatPanel({
               onKeyDown={onKeyDown}
               disabled={disabled}
               placeholder={disabled ? 'Creating chat…' : 'Message the assistant…'}
-              className="block w-full resize-none bg-transparent px-4 pt-3 pb-12 leading-[1.5] text-foreground placeholder:text-muted-foreground/60 outline-none disabled:cursor-not-allowed"
+              className="block w-full resize-none bg-transparent outline-none disabled:cursor-not-allowed"
+              style={{
+                fontFamily: T.font,
+                fontSize: 13,
+                lineHeight: 1.5,
+                color: T.textPrimary,
+                padding: '11px 14px 44px',
+              }}
             />
 
-            <div className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center justify-between">
+            <div className="pointer-events-none absolute flex items-center justify-between" style={{ left: 9, right: 9, bottom: 8 }}>
               {groupedModels && modelId && selectedModel ? (
                 <ModelPicker
                   grouped={groupedModels}
@@ -684,7 +726,17 @@ export function ChatPanel({
                   type="button"
                   onClick={stop}
                   aria-label="Stop generating"
-                  className="pointer-events-auto inline-flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-90"
+                  className="pointer-events-auto inline-flex items-center justify-center"
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: T.textPrimary,
+                    color: '#fff',
+                    cursor: 'pointer',
+                    transition: 'opacity 0.15s ease',
+                  }}
                 >
                   <Square className="h-3 w-3 fill-current" aria-hidden="true" />
                 </button>
@@ -693,7 +745,18 @@ export function ChatPanel({
                   type="submit"
                   disabled={!canSend}
                   aria-label="Send message"
-                  className="pointer-events-auto inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all hover:opacity-90 disabled:bg-muted disabled:text-muted-foreground/60 disabled:cursor-not-allowed"
+                  className="pointer-events-auto inline-flex items-center justify-center"
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: canSend ? T.accent : T.graySoft,
+                    color: canSend ? '#fff' : T.textFaintest,
+                    cursor: canSend ? 'pointer' : 'not-allowed',
+                    boxShadow: canSend ? '0 2px 8px rgba(107,76,230,.35)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
                 >
                   <ArrowUp className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -742,7 +805,19 @@ function MessageTurn({ role, content, parts, isStreaming }: MessageTurnProps) {
   if (role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 leading-relaxed text-foreground whitespace-pre-wrap break-words">
+        <div
+          style={{
+            maxWidth: '84%',
+            background: T.borderRowLight,
+            color: T.textPrimary,
+            borderRadius: 15,
+            padding: '9px 13px',
+            fontSize: 13,
+            lineHeight: 1.5,
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'anywhere',
+          }}
+        >
           {content}
         </div>
       </div>
@@ -753,17 +828,26 @@ function MessageTurn({ role, content, parts, isStreaming }: MessageTurnProps) {
     // Server compaction wraps summaries in this prefix; strip for display.
     const body = content.replace(/^Earlier conversation summary:\n?/, '')
     return (
-      <div className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-2 text-[12px] text-muted-foreground">
-        <div className="mb-1 font-medium tracking-tight text-foreground/80">
+      <div
+        style={{
+          borderRadius: 10,
+          border: `1px dashed ${T.borderCard}`,
+          background: T.bgSecondary,
+          padding: '8px 12px',
+          fontSize: 12,
+          color: T.textMuted,
+        }}
+      >
+        <div style={{ marginBottom: 4, fontWeight: 600, color: T.textSecondary }}>
           Earlier conversation summary
         </div>
-        <div className="whitespace-pre-wrap leading-relaxed">{body}</div>
+        <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{body}</div>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col" style={{ gap: 10 }}>
       {orderedParts.map((p, i) => {
         if (p.type === 'text') {
           const text = (p as { text: string }).text
@@ -782,7 +866,8 @@ function MessageTurn({ role, content, parts, isStreaming }: MessageTurnProps) {
           return (
             <div
               key={i}
-              className="text-foreground leading-relaxed
+              style={{ fontSize: 13, lineHeight: 1.6, color: T.textPrimary }}
+              className="text-foreground
                          [&_p]:my-2 [&_p]:[overflow-wrap:anywhere] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0
                          [&_h1]:text-lg [&_h1]:font-semibold [&_h1]:my-3
                          [&_h2]:text-base [&_h2]:font-semibold [&_h2]:my-3
@@ -827,28 +912,35 @@ function MessageTurn({ role, content, parts, isStreaming }: MessageTurnProps) {
 
 function EmptyState({ prompts, onPick }: { prompts: string[]; onPick: (p: string) => void }) {
   return (
-    <div className="mx-auto flex h-full max-w-[28rem] flex-col items-start justify-center gap-4 px-2">
-      <div className="space-y-1">
-        <h2 className="text-[17px] font-medium tracking-tight text-foreground">
+    <div className="mx-auto flex h-full max-w-[28rem] flex-col items-start justify-center" style={{ gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <h2 style={{ fontSize: 17, fontWeight: 650, letterSpacing: '-0.01em', color: T.textPrimary, margin: 0 }}>
           How can I help?
         </h2>
-        <p className="text-[13px] leading-relaxed text-muted-foreground">
-          I can query records, list schemas, and inspect collections on your behalf.
+        <p style={{ fontSize: 13, lineHeight: 1.6, color: T.textMuted, margin: 0 }}>
+          Ask about your tasks, projects, and due dates — or have me create and update them for you.
         </p>
       </div>
-      <div className="flex flex-col gap-0.5 pt-2">
-        <div className="pb-1 text-[10.5px] font-medium tracking-[0.08em] uppercase text-muted-foreground">
-          Try
-        </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, paddingTop: 4 }}>
         {prompts.map((p) => (
           <button
             key={p}
             type="button"
             onClick={() => onPick(p)}
-            className="group flex items-center gap-2 py-1 text-left text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+            style={{
+              fontSize: 11.5,
+              color: '#4B4D63',
+              background: '#F5F4FB',
+              border: '1px solid #ECEBF6',
+              padding: '6px 11px',
+              borderRadius: 20,
+              cursor: 'pointer',
+              fontFamily: T.font,
+              transition: 'background-color 0.15s ease',
+              textAlign: 'left',
+            }}
           >
-            <span className="h-px w-3 shrink-0 bg-border transition-colors group-hover:bg-muted-foreground" />
-            <span className="truncate">{p}</span>
+            {p}
           </button>
         ))}
       </div>
@@ -860,7 +952,7 @@ function EmptyState({ prompts, onPick }: { prompts: string[]; onPick: (p: string
 
 function ThinkingIndicator() {
   return (
-    <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
+    <div className="flex items-center gap-2" style={{ fontSize: 12.5, color: T.textMuted }}>
       <EllipsisDots />
       <span>Thinking</span>
     </div>
@@ -868,23 +960,28 @@ function ThinkingIndicator() {
 }
 
 function LiveIndicator() {
+  // Design 9: violet ping dot + calm "Working" label.
   return (
-    <div className="flex items-center gap-2 text-[12px] text-muted-foreground" aria-live="polite">
-      <span className="relative flex h-1.5 w-1.5">
-        <span className="absolute inset-0 rounded-full bg-primary/50 animate-ping" />
-        <span className="relative h-1.5 w-1.5 rounded-full bg-primary" />
+    <div className="flex items-center" style={{ gap: 7, fontSize: 11.5, color: T.textMuted }} aria-live="polite">
+      <span className="relative inline-flex" style={{ width: 6, height: 6 }}>
+        <span
+          className="absolute inset-0 rounded-full animate-ping"
+          style={{ background: 'rgba(107,76,230,.5)' }}
+        />
+        <span className="relative rounded-full" style={{ width: 6, height: 6, background: T.accent }} />
       </span>
-      <span className="tracking-wide">Working</span>
+      <span>Working</span>
     </div>
   )
 }
 
 function EllipsisDots() {
+  const dot: React.CSSProperties = { width: 4, height: 4, borderRadius: '50%', background: T.textFaint }
   return (
     <span className="inline-flex items-center gap-[3px]">
-      <span className="h-1 w-1 rounded-full bg-muted-foreground animate-[pulse_1.4s_ease-in-out_0ms_infinite]" />
-      <span className="h-1 w-1 rounded-full bg-muted-foreground animate-[pulse_1.4s_ease-in-out_180ms_infinite]" />
-      <span className="h-1 w-1 rounded-full bg-muted-foreground animate-[pulse_1.4s_ease-in-out_360ms_infinite]" />
+      <span style={dot} className="animate-[pulse_1.4s_ease-in-out_0ms_infinite]" />
+      <span style={dot} className="animate-[pulse_1.4s_ease-in-out_180ms_infinite]" />
+      <span style={dot} className="animate-[pulse_1.4s_ease-in-out_360ms_infinite]" />
     </span>
   )
 }
@@ -952,13 +1049,18 @@ function ToolRow({ inv }: { inv: ToolInvocation }) {
   const { label, path } = describeTool(inv.toolName, inv.args as Record<string, unknown> | undefined)
 
   return (
-    <div className={`flex items-center gap-2 text-[13px] leading-tight ${running ? 'animate-[pulse_2s_ease-in-out_infinite]' : ''}`}>
-      <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center">
-        {running ? <Spinner /> : failed ? <FailDot /> : <Check className="h-3 w-3 shrink-0 text-foreground/60" aria-hidden="true" />}
+    <div
+      className={running ? 'animate-[pulse_2s_ease-in-out_infinite]' : ''}
+      style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, lineHeight: 1.3, color: T.textMuted }}
+    >
+      <span className="inline-flex shrink-0 items-center justify-center" style={{ width: 14, height: 14 }}>
+        {running ? <Spinner /> : failed ? <FailDot /> : (
+          <Check className="shrink-0" style={{ width: 12, height: 12, color: T.textFaint }} strokeWidth={2.4} aria-hidden="true" />
+        )}
       </span>
-      <span className={running ? 'text-foreground' : 'text-muted-foreground'}>{label}</span>
+      <span>{label}</span>
       {path && (
-        <code className="truncate font-mono text-[12.5px] text-foreground/70">{path}</code>
+        <code className="truncate" style={{ fontFamily: T.mono, fontSize: 12, color: T.textSecondary }}>{path}</code>
       )}
       {running && <EllipsisDots />}
     </div>
@@ -967,7 +1069,7 @@ function ToolRow({ inv }: { inv: ToolInvocation }) {
 
 function Spinner() {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" className="animate-spin text-foreground/70">
+    <svg width="12" height="12" viewBox="0 0 12 12" className="animate-spin" style={{ color: T.textFaint }}>
       <circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="1.5" />
       <path d="M10.5 6 A 4.5 4.5 0 0 1 6 10.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
@@ -975,32 +1077,58 @@ function Spinner() {
 }
 
 function FailDot() {
-  return <span className="h-1.5 w-1.5 rounded-full bg-destructive" aria-label="failed" />
+  return <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.red }} aria-label="failed" />
 }
 
+// Map DeepSpace record/schema tool names to task-domain verbs + a mono path.
+// Tool names arrive with '.' → '_' (see buildTools in ai/tools.ts):
+// records_query / records_get / records_create / records_update /
+// records_delete / schema_list / schema_describe / user_current.
 function describeTool(
   name: string,
   args?: Record<string, unknown>,
 ): { label: string; path?: string } {
   const collection = typeof args?.collection === 'string' ? args.collection : undefined
   const recordId = typeof args?.recordId === 'string' ? args.recordId : undefined
+  const data =
+    args?.data && typeof args.data === 'object' ? (args.data as Record<string, unknown>) : undefined
+  const title =
+    typeof data?.Title === 'string' ? data.Title
+    : typeof data?.title === 'string' ? data.title
+    : undefined
+
+  // Singular, human noun for a collection ("tasks" → "task").
+  const noun = (() => {
+    if (!collection) return ''
+    const c = collection.toLowerCase()
+    if (c.includes('task')) return 'task'
+    if (c.includes('project')) return 'project'
+    if (c.includes('tag')) return 'tag'
+    return collection.replace(/s$/, '')
+  })()
 
   switch (name) {
     case 'schema_list':
-      return { label: 'Listing collections' }
+      return { label: 'Checking available data' }
     case 'schema_describe':
-      return { label: 'Describing', path: collection }
+      return { label: 'Checking', path: collection }
     case 'records_query':
       return { label: 'Reading', path: collection }
     case 'records_get':
       return {
-        label: 'Fetching',
+        label: 'Reading',
         path: collection && recordId ? `${collection}/${recordId}` : collection,
       }
+    case 'records_create':
+      return { label: noun ? `Creating ${noun}` : 'Creating', path: title ?? collection }
+    case 'records_update':
+      return { label: noun ? `Updating ${noun}` : 'Updating', path: title ?? collection }
+    case 'records_delete':
+      return { label: noun ? `Deleting ${noun}` : 'Deleting', path: title ?? collection }
     case 'user_current':
       return { label: 'Checking current user' }
     default:
-      return { label: 'Running', path: name }
+      return { label: 'Working', path: name }
   }
 }
 
@@ -1041,23 +1169,50 @@ function ModelPicker({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center"
+        style={{
+          gap: 5,
+          padding: '4px 8px',
+          borderRadius: 20,
+          border: 'none',
+          background: 'transparent',
+          fontFamily: T.font,
+          fontSize: 11.5,
+          color: T.textMuted,
+          cursor: 'pointer',
+          transition: 'color 0.15s ease',
+        }}
         aria-haspopup="menu"
         aria-expanded={open}
       >
         <span className="max-w-[10rem] truncate">{label}</span>
-        <ChevronDown className="h-3 w-3 opacity-70" aria-hidden="true" />
+        <ChevronDown style={{ width: 11, height: 11, opacity: 0.7 }} aria-hidden="true" />
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute bottom-full left-0 z-30 mb-2 w-64 max-h-[22rem] overflow-y-auto rounded-lg border border-border bg-popover text-popover-foreground shadow-lg"
+          className="absolute bottom-full left-0 z-30 overflow-y-auto"
+          style={{
+            marginBottom: 8,
+            width: 256,
+            maxHeight: '22rem',
+            borderRadius: 10,
+            border: `1px solid ${T.borderCard}`,
+            background: '#fff',
+            boxShadow: '0 6px 24px -4px rgba(20,20,50,0.14)',
+            padding: 4,
+          }}
         >
           {grouped.map(([provider, items], pIdx) => (
             <div key={provider}>
-              {pIdx > 0 && <div className="border-t border-border/60" />}
-              <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {pIdx > 0 && <div style={{ height: 1, background: T.borderRowLight, margin: '4px 0' }} />}
+              <div
+                style={{
+                  padding: '6px 8px 3px',
+                  ...monoLabelInline,
+                }}
+              >
                 {provider}
               </div>
               {items.map((m) => {
@@ -1071,12 +1226,23 @@ function ModelPicker({
                       onChange(m.id)
                       setOpen(false)
                     }}
-                    className={`flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left text-[12.5px] transition-colors ${
-                      active ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
-                    }`}
+                    className="flex w-full items-center justify-between text-left"
+                    style={{
+                      gap: 12,
+                      padding: '6px 8px',
+                      borderRadius: 6,
+                      border: 'none',
+                      background: active ? T.accentTint : 'transparent',
+                      color: active ? T.accentStrong : T.textSecondary,
+                      fontFamily: T.font,
+                      fontSize: 12.5,
+                      fontWeight: active ? 600 : 500,
+                      cursor: 'pointer',
+                      transition: 'background-color 0.12s ease',
+                    }}
                   >
                     <span className="truncate">{m.label}</span>
-                    {active && <Check className="h-3 w-3 shrink-0 text-foreground/60" aria-hidden="true" />}
+                    {active && <Check style={{ width: 13, height: 13, flexShrink: 0, color: T.accent }} aria-hidden="true" />}
                   </button>
                 )
               })}
@@ -1086,6 +1252,15 @@ function ModelPicker({
       )}
     </div>
   )
+}
+
+const monoLabelInline: React.CSSProperties = {
+  fontFamily: T.mono,
+  fontSize: 10,
+  fontWeight: 600,
+  letterSpacing: '0.05em',
+  textTransform: 'uppercase',
+  color: T.textFaint,
 }
 
 // ----- Utils -------------------------------------------------------------
