@@ -1,9 +1,16 @@
 /**
- * Kanban Card Detail Modal
+ * Kanban Card Detail Modal — "Momentum" restyle
  *
  * Shown when a user clicks a task card on the kanban board.
  * Displays: title, kanban status, project, priority.
  * Actions: mark complete, move to previous/next stage.
+ *
+ * UI-only restyle: all controls/mechanisms (prev/next stage nav, complete,
+ * Escape-to-close, scrim-click-to-close) are preserved, as are the DOM
+ * hooks that the mobile stylesheet targets:
+ *   data-kanban-modal-overlay, data-kanban-modal, and the trailing footer
+ *   div (nav-button group as its first child), plus the className hooks
+ *   "kanban-nav-btn", "kanban-complete-btn", "kanban-modal-button".
  */
 
 import React, { useEffect } from 'react';
@@ -13,9 +20,12 @@ import {
   KANBAN_STATUS_CONFIG,
   KANBAN_STATUS_LABELS,
   KANBAN_STATUS_COLORS,
+  KANBAN_STATUS_SOFT_COLORS,
   PRIORITY_LABELS,
   PRIORITY_COLORS,
+  PRIORITY_SOFT_COLORS,
 } from '../constants';
+import { T, monoLabel } from '../utils/styles';
 import { Icon } from '../utils/icons';
 
 interface KanbanCardModalProps {
@@ -82,42 +92,42 @@ export default function KanbanCardModal({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [onClose]);
 
-  const statusColor = KANBAN_STATUS_COLORS[task.kanbanStatus] || '#8E8E93';
+  const statusColor = KANBAN_STATUS_COLORS[task.kanbanStatus] || T.gray;
+  const statusSoft = KANBAN_STATUS_SOFT_COLORS[task.kanbanStatus] || T.graySoft;
   const statusLabel = KANBAN_STATUS_LABELS[task.kanbanStatus] || task.kanbanStatus;
-  const priorityColor = PRIORITY_COLORS[task.priority] || '#8E8E93';
+  const priorityColor = PRIORITY_COLORS[task.priority] || T.gray;
+  const prioritySoft = PRIORITY_SOFT_COLORS[task.priority] || T.graySoft;
   const priorityLabel = PRIORITY_LABELS[task.priority] || 'None';
 
-  const nextBtnColor = canGoNext
-    ? KANBAN_STATUS_COLORS[KANBAN_STATUS_CONFIG[currentIndex + 1].id] || '#007AFF'
-    : '#8E8E93';
+  const nextStatus = canGoNext ? KANBAN_STATUS_CONFIG[currentIndex + 1] : null;
+  const nextBtnColor = nextStatus
+    ? KANBAN_STATUS_COLORS[nextStatus.id] || T.accent
+    : T.gray;
 
   return (
     <div data-kanban-modal-overlay style={modalStyles.overlay} onClick={onClose}>
       <div data-kanban-modal style={modalStyles.container} onClick={e => e.stopPropagation()}>
-        {/* ── Header: title + status badge ── */}
+        {/* ── Header: title + status pill ── */}
         <div style={modalStyles.header}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <h3 style={modalStyles.title}>{task.title}</h3>
             <span style={{
-              ...modalStyles.statusBadge,
-              backgroundColor: statusColor + '14',
+              ...modalStyles.statusPill,
+              backgroundColor: statusSoft,
               color: statusColor,
             }}>
               <span style={{
-                width: 8, height: 8, borderRadius: '50%',
+                width: 8, height: 8, borderRadius: 3,
                 backgroundColor: statusColor,
                 flexShrink: 0,
               }} />
               {statusLabel}
             </span>
           </div>
-          <button onClick={onClose} style={modalStyles.closeBtn}>
-            <Icon name="x" size={16} color="#8E8E93" />
+          <button onClick={onClose} style={modalStyles.closeBtn} aria-label="Close">
+            <Icon name="x" size={16} color={T.textMuted} />
           </button>
         </div>
-
-        {/* Divider */}
-        <div style={modalStyles.divider} />
 
         {/* ── Body: project + priority side by side ── */}
         <div style={modalStyles.body}>
@@ -128,23 +138,27 @@ export default function KanbanCardModal({
               {project ? (
                 <span style={modalStyles.fieldPill}>
                   <span style={{
-                    width: 10, height: 10, borderRadius: '50%',
-                    backgroundColor: project.color || '#007AFF',
+                    width: 9, height: 9, borderRadius: 3,
+                    backgroundColor: project.color || T.accentAvatar,
                     flexShrink: 0,
                   }} />
                   {project.title}
                 </span>
               ) : (
-                <span style={{ ...modalStyles.fieldPill, color: '#8E8E93' }}>None</span>
+                <span style={{ ...modalStyles.fieldPill, color: T.textFaint }}>None</span>
               )}
             </div>
 
             {/* Priority */}
             <div style={modalStyles.fieldCol}>
               <span style={modalStyles.fieldLabel}>PRIORITY</span>
-              <span style={modalStyles.fieldPill}>
+              <span style={{
+                ...modalStyles.priorityPill,
+                backgroundColor: task.priority && task.priority !== 'none' ? prioritySoft : T.graySoft,
+                color: task.priority && task.priority !== 'none' ? priorityColor : T.textFaint,
+              }}>
                 <span style={{
-                  width: 10, height: 10, borderRadius: '50%',
+                  width: 8, height: 8, borderRadius: '50%',
                   backgroundColor: priorityColor,
                   flexShrink: 0,
                 }} />
@@ -154,9 +168,6 @@ export default function KanbanCardModal({
           </div>
         </div>
 
-        {/* Divider */}
-        <div style={modalStyles.divider} />
-
         {/* ── Footer: nav buttons + complete ── */}
         {!isReadOnly && (
           <div style={modalStyles.footer}>
@@ -165,24 +176,25 @@ export default function KanbanCardModal({
               {canGoPrev && (
                 <button
                   onClick={handlePrev}
-                  className="kanban-modal-button"
+                  className="kanban-nav-btn kanban-modal-button"
                   style={modalStyles.prevBtn}
                 >
-                  <Icon name="chevron-left" size={14} color="#3C3C43" />
+                  <Icon name="chevron-left" size={14} color={T.textSecondary} />
                   {KANBAN_STATUS_CONFIG[currentIndex - 1].label}
                 </button>
               )}
 
-              {canGoNext && (
+              {canGoNext && nextStatus && (
                 <button
                   onClick={handleNext}
                   className="kanban-modal-button"
                   style={{
                     ...modalStyles.nextBtn,
                     backgroundColor: nextBtnColor,
+                    boxShadow: `0 2px 8px -2px ${nextBtnColor}66`,
                   }}
                 >
-                  {KANBAN_STATUS_CONFIG[currentIndex + 1].label}
+                  {nextStatus.label}
                   <Icon name="chevron-right" size={14} color="#fff" />
                 </button>
               )}
@@ -192,11 +204,11 @@ export default function KanbanCardModal({
             {!task.completed && (
               <button
                 onClick={handleComplete}
-                className="kanban-modal-button"
+                className="kanban-complete-btn kanban-modal-button"
                 style={modalStyles.completeBtn}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3C3C43" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6 9 17l-5-5" />
                 </svg>
                 Mark Complete
               </button>
@@ -217,43 +229,47 @@ const modalStyles: Record<string, React.CSSProperties> = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: T.scrim,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10000,
-    backdropFilter: 'blur(4px)',
+    fontFamily: T.font,
   },
   container: {
     backgroundColor: '#fff',
     borderRadius: 18,
     width: '100%',
     maxWidth: 470,
-    boxShadow: '0 24px 80px rgba(0,0,0,0.14), 0 8px 24px rgba(0,0,0,0.08)',
-    animation: 'modalFadeIn 0.2s ease-out',
+    boxShadow: T.shadowModal,
+    animation: 'modalFadeIn 0.18s ease',
     overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    fontFamily: T.font,
   },
   header: {
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    padding: '24px 24px 20px',
+    padding: '22px 22px 18px',
     gap: 16,
   },
   title: {
-    fontSize: 20,
-    fontWeight: 700,
-    color: '#1D1D1F',
-    lineHeight: '1.3',
-    margin: '0 0 10px 0',
+    fontSize: 18,
+    fontWeight: 650,
+    letterSpacing: '-0.01em',
+    color: T.textPrimary,
+    lineHeight: 1.35,
+    margin: '0 0 12px 0',
     wordBreak: 'break-word' as const,
   },
   closeBtn: {
     border: 'none',
-    background: '#F2F2F7',
+    background: T.graySoft,
     cursor: 'pointer',
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: '50%',
     display: 'flex',
     alignItems: 'center',
@@ -261,103 +277,111 @@ const modalStyles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
     transition: 'background 0.15s ease',
   },
-  statusBadge: {
+  statusPill: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 6,
-    padding: '5px 12px',
+    padding: '4px 11px',
     borderRadius: 20,
-    fontSize: 13,
-    fontWeight: 500,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#F2F2F7',
-    margin: '0',
+    fontSize: 12,
+    fontWeight: 600,
   },
   body: {
-    padding: '24px 24px',
+    padding: '4px 22px 22px',
   },
   fieldGrid: {
     display: 'flex',
-    gap: 32,
+    gap: 28,
   },
   fieldCol: {
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: 10,
+    gap: 8,
+    minWidth: 0,
   },
   fieldLabel: {
-    fontSize: 11,
-    fontWeight: 600,
-    color: '#8E8E93',
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase' as const,
+    ...monoLabel,
+    fontSize: '11px',
   },
   fieldPill: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 8,
-    padding: '6px 14px',
-    borderRadius: 10,
-    fontSize: 14,
+    padding: '7px 12px',
+    borderRadius: 9,
+    fontSize: 13,
     fontWeight: 500,
-    color: '#1D1D1F',
-    backgroundColor: '#F9F9FB',
-    border: '1px solid #F0F0F0',
+    color: T.textPrimary,
+    backgroundColor: T.bgTertiary,
+    border: `1px solid ${T.border}`,
+  },
+  priorityPill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 7,
+    padding: '7px 12px',
+    borderRadius: 20,
+    fontSize: 13,
+    fontWeight: 600,
   },
   footer: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
-    padding: '20px 24px 24px',
-    backgroundColor: '#FAFAFA',
+    padding: '16px 22px 20px',
+    borderTop: `1px solid ${T.borderRowLight}`,
+    backgroundColor: T.bgSecondary,
   },
   prevBtn: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    padding: '10px 18px',
-    border: '1px solid #E5E5EA',
-    borderRadius: 12,
+    gap: 4,
+    padding: '9px 15px',
+    border: `1px solid ${T.borderBtn}`,
+    borderRadius: 10,
     background: '#fff',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 500,
-    color: '#3C3C43',
+    color: T.textSecondary,
+    cursor: 'pointer',
     transition: 'all 0.15s ease',
     whiteSpace: 'nowrap' as const,
+    fontFamily: T.font,
   },
   nextBtn: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    padding: '10px 18px',
+    gap: 4,
+    padding: '9px 15px',
     border: 'none',
-    borderRadius: 12,
-    fontSize: 14,
+    borderRadius: 10,
+    fontSize: 13,
     fontWeight: 600,
     color: '#fff',
+    cursor: 'pointer',
     transition: 'all 0.15s ease',
     whiteSpace: 'nowrap' as const,
+    fontFamily: T.font,
   },
   completeBtn: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    padding: '10px 18px',
-    border: '1px solid #E5E5EA',
-    borderRadius: 12,
-    background: '#fff',
-    fontSize: 14,
-    fontWeight: 500,
-    color: '#3C3C43',
+    gap: 7,
+    padding: '9px 15px',
+    border: 'none',
+    borderRadius: 10,
+    background: T.green,
+    fontSize: 13,
+    fontWeight: 600,
+    color: '#fff',
     cursor: 'pointer',
+    boxShadow: '0 2px 8px -2px rgba(34,192,139,0.5)',
     transition: 'all 0.15s ease',
     whiteSpace: 'nowrap' as const,
+    fontFamily: T.font,
   },
 };
-

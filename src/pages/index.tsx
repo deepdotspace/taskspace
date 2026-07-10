@@ -2,408 +2,536 @@
  * Landing page — what a signed-out visitor sees at `/`.
  * Signed-in users are redirected straight to the workspace.
  *
- * Design Direction
+ * Design direction: "Momentum" (1b) — the calm, feature-forward violet
+ * system shared with the app. White page, Geist type, a static faux-board
+ * product mock, a three-up feature trio, and a quiet footer.
  *
- * Product: Taskspace — a real-time shared task list for small teams. Today,
- *   Upcoming, projects, tags, a kanban board, and an AI assistant, with every
- *   change landing on every teammate's screen live. Open it, type, done.
- * Emotion: the quiet of a Monday morning where you open one list and know
- *   exactly what today is. Calm control — not command-center adrenaline.
- * Metaphor: a shared paper day-planner lying open on the team's table.
- *   Everyone writes in it; everyone is looking at the same page.
- * References: Muji stationery (function as the whole aesthetic); a café
- *   order rail (tickets slide left to right, state readable at a glance);
- *   Dieter Rams' 606 shelving (modular, quiet, nothing extra).
- * Signature: a live task-list mockup in the hero that works itself once —
- *   a task checks off, a card slides to Done, two presence dots breathe —
- *   then sits still, like a teammate finishing an edit and looking up.
- * Hero: split screen. Left, "Team tasks. Zero clutter." at ~64px with one
- *   supporting sentence and the CTA. Right, the self-running mockup.
- *
- * Style Tile
- * - Color: white dominant, indigo primary (app token), warm gray muted.
- * - Type: the app's system sans for both; headings tracking-tight — the
- *   landing should feel like the product, not a costume in front of it.
- * - Theme: light — the product is light; the landing doesn't lie.
- * - Art direction: editorial rows, one product visual per claim.
- * - Motion: subtle; the mockup runs once on load, everything else is a
- *   fade-in on scroll. No loops, no marquees, no parallax.
- * - Voice: declarative; second person; max 12 words; no exclamation points.
+ * Auth/entry mechanism is unchanged from the previous landing: `useAuth()`
+ * gates the page (signed-in visitors are redirected to `/home`) and every
+ * app-entry control calls `navigate('/home')`, which triggers the existing
+ * sign-in flow.
  */
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { MotionConfig, motion, useInView, useReducedMotion } from 'framer-motion'
-import { ArrowRight, Check, Sparkles, CalendarDays, Columns3, Users } from 'lucide-react'
+import { Columns3, ListChecks, Users } from 'lucide-react'
 import { useAuth } from 'deepspace'
+import { T } from '../utils/styles'
+import { useIsMobile } from '../hooks'
 
-// ── Shared bits ──────────────────────────────────────────────────────────────
+const REPO_URL = 'https://github.com/deepdotspace/taskspace'
+const X_URL = 'https://x.com/deepdotspace'
 
-function ScrollReveal({ children, delay = 0, className }: { children: ReactNode; delay?: number; className?: string }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { once: true, margin: '-80px' })
+// ── Brand glyphs (inline SVG) ────────────────────────────────────────────────
+
+function LogoGlyph({ size = 28 }: { size?: number }) {
   return (
-    <motion.div
-      ref={ref}
-      className={className}
-      initial={{ opacity: 0, y: 14 }}
-      animate={inView ? { opacity: 1, y: 0 } : undefined}
-      transition={{ duration: 0.55, delay, ease: [0.25, 0.4, 0.25, 1] }}
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 8,
+        background: T.accentGradient,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}
+      aria-hidden
     >
-      {children}
-    </motion.div>
+      <svg width={size * 0.54} height={size * 0.54} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 11l3 3L22 4" />
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+      </svg>
+    </div>
+  )
+}
+
+function GitHubGlyph({ size = 17, fill = '#2C2E38' }: { size?: number; fill?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} aria-hidden>
+      <path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.2.8-.5v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.6.8.5 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z" />
+    </svg>
+  )
+}
+
+function XGlyph({ size = 16, fill = T.textFaint }: { size?: number; fill?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} aria-hidden>
+      <path d="M18.9 1.2h3.7l-8 9.1L24 22.8h-7.4l-5.8-7.6-6.6 7.6H.5l8.6-9.8L0 1.2h7.6l5.2 6.9zM17.6 20.6h2L6.5 3.3H4.3z" />
+    </svg>
   )
 }
 
 // ── Nav ──────────────────────────────────────────────────────────────────────
 
-function LandingNav() {
+function LandingNav({ isSignedIn }: { isSignedIn: boolean }) {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
+  const enterApp = () => navigate('/home')
+  const scrollToFeatures = () => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })
+
+  const navLink: React.CSSProperties = {
+    fontSize: 14,
+    fontWeight: 500,
+    color: T.textMuted,
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    textDecoration: 'none',
+    fontFamily: T.font,
+    padding: 0,
+    transition: 'color 0.15s ease',
+  }
+
   return (
-    <header className="absolute top-0 inset-x-0 z-40">
-      <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
-        <span className="text-lg font-semibold tracking-tight text-foreground">Taskspace</span>
-        <div className="flex items-center gap-6">
+    <nav
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: isMobile ? 16 : 32,
+        padding: isMobile ? '16px 20px' : '18px 40px',
+        borderBottom: `1px solid ${T.borderTabs}`,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+        <LogoGlyph size={28} />
+        <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em', color: T.textPrimary }}>Taskspace</span>
+      </div>
+
+      {!isMobile && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 26 }}>
           <button
-            onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-            className="hidden sm:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            style={navLink}
+            onClick={scrollToFeatures}
+            onMouseEnter={(e) => (e.currentTarget.style.color = T.textPrimary)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = T.textMuted)}
           >
             Features
           </button>
-          <button
-            onClick={() => navigate('/home')}
-            className="inline-flex items-center px-4 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 active:scale-[0.97] transition-transform"
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={navLink}
+            onMouseEnter={(e) => (e.currentTarget.style.color = T.textPrimary)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = T.textMuted)}
           >
-            Open Taskspace
-          </button>
+            GitHub
+          </a>
         </div>
+      )}
+
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14 }}>
+        {!isMobile && (
+          <button
+            style={navLink}
+            onClick={enterApp}
+            onMouseEnter={(e) => (e.currentTarget.style.color = T.textPrimary)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = T.textMuted)}
+          >
+            Sign in
+          </button>
+        )}
+        <button
+          onClick={enterApp}
+          style={{
+            padding: '8px 16px',
+            border: 'none',
+            background: T.accent,
+            color: '#fff',
+            borderRadius: 9,
+            fontFamily: T.font,
+            fontSize: 13.5,
+            fontWeight: 600,
+            cursor: 'pointer',
+            boxShadow: T.shadowBtnGlow,
+            transition: 'opacity 0.15s ease',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.92')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+        >
+          {isSignedIn ? 'Open Taskspace' : 'Get started free'}
+        </button>
       </div>
-    </header>
+    </nav>
   )
 }
 
-// ── Signature element: self-running product mockup ───────────────────────────
+// ── Product mock (static faux board) ─────────────────────────────────────────
 
-const MOCK_TASKS = [
-  { title: 'Ship pricing page', project: 'Website', doneAtStep: 1 },
-  { title: 'Review onboarding copy', project: 'Launch', doneAtStep: 2 },
-  { title: 'Prep Monday standup', project: 'Team', doneAtStep: 0 },
-]
+function SkeletonBar({ width, color = '#ECEDF3', height = 8 }: { width: number | string; color?: string; height?: number }) {
+  return <div style={{ width, height, borderRadius: 4, background: color }} />
+}
 
-function HeroMockup() {
-  const reduce = useReducedMotion()
-  // step 0 → idle, 1 → first task checks, 2 → second task checks + card slides
-  const [step, setStep] = useState(reduce ? 2 : 0)
-  useEffect(() => {
-    if (reduce) return
-    const t1 = setTimeout(() => setStep(1), 1100)
-    const t2 = setTimeout(() => setStep(2), 2300)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
-  }, [reduce])
-
+function MockCard({ children, style }: { children?: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <div className="relative">
-      <div className="rounded-2xl bg-card border border-border shadow-[0_8px_40px_0_rgba(0,0,0,0.08)] overflow-hidden">
-        {/* window chrome */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted">
-          <div className="flex items-center gap-1.5" aria-hidden>
-            <span className="w-2.5 h-2.5 rounded-full bg-border" />
-            <span className="w-2.5 h-2.5 rounded-full bg-border" />
-            <span className="w-2.5 h-2.5 rounded-full bg-border" />
-          </div>
-          <span className="text-xs font-medium text-muted-foreground">Today · Design team</span>
-          {/* presence avatars */}
-          <div className="flex -space-x-1.5">
-            {['M', 'J'].map((initial, i) => (
-              <motion.span
-                key={initial}
-                className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold grid place-items-center ring-2 ring-card"
-                initial={reduce ? false : { scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.5 + i * 0.25, type: 'spring', stiffness: 400, damping: 20 }}
-              >
-                {initial}
-              </motion.span>
-            ))}
-          </div>
-        </div>
-        {/* task list */}
-        <div className="p-4 space-y-1">
-          {MOCK_TASKS.map((t) => {
-            const done = t.doneAtStep > 0 && step >= t.doneAtStep
-            return (
-              <div key={t.title} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted">
-                <span
-                  className={
-                    'w-[18px] h-[18px] shrink-0 rounded-full border grid place-items-center transition-colors duration-300 ' +
-                    (done ? 'bg-primary border-primary text-primary-foreground' : 'border-border')
-                  }
-                >
-                  {done && <Check className="w-3 h-3" strokeWidth={3} />}
-                </span>
-                <span className={'text-sm transition-colors duration-300 ' + (done ? 'text-muted-foreground line-through' : 'text-foreground')}>
-                  {t.title}
-                </span>
-                <span className="ml-auto text-[11px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">{t.project}</span>
-              </div>
-            )
-          })}
-        </div>
-        {/* mini board */}
-        <div className="grid grid-cols-3 gap-2 px-4 pb-4">
-          {['To do', 'Doing', 'Done'].map((col) => (
-            <div key={col} className="rounded-lg bg-muted p-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{col}</span>
-              <div className="mt-1.5 space-y-1.5 min-h-[38px]">
-                {col === 'To do' && <div className="h-7 rounded bg-card border border-border" />}
-                {col === 'Doing' && step < 2 && (
-                  <motion.div layoutId="moving-card" className="h-7 rounded bg-card border border-border" />
-                )}
-                {col === 'Done' && step >= 2 && (
-                  <motion.div
-                    layoutId="moving-card"
-                    className="h-7 rounded bg-card border border-primary/40"
-                    transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-                  />
-                )}
-              </div>
+    <div
+      style={{
+        background: '#fff',
+        border: `1px solid ${T.borderCard}`,
+        borderRadius: 8,
+        padding: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 7,
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function MockColumn({
+  dotColor,
+  labelWidth,
+  children,
+}: {
+  dotColor: string
+  labelWidth: number | string
+  children: React.ReactNode
+}) {
+  return (
+    <div style={{ flex: 1, minWidth: 0, background: T.bgTertiary, borderRadius: 10, padding: '10px 8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 2px 10px' }}>
+        <span style={{ width: 9, height: 9, borderRadius: 3, background: dotColor, flexShrink: 0 }} />
+        <SkeletonBar width={labelWidth} color="#E1E3EC" height={7} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>{children}</div>
+    </div>
+  )
+}
+
+function ProductMock({ isMobile }: { isMobile: boolean }) {
+  return (
+    <div
+      style={{
+        maxWidth: 1040,
+        margin: `${isMobile ? 40 : 56}px auto 0`,
+        borderRadius: '16px 16px 0 0',
+        border: `1px solid ${T.borderCard}`,
+        borderBottom: 'none',
+        overflow: 'hidden',
+        boxShadow: '0 30px 80px -20px rgba(107,76,230,.25)',
+        background: '#fff',
+      }}
+    >
+      {/* browser chrome */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7,
+          padding: '11px 16px',
+          borderBottom: `1px solid ${T.borderRowLight}`,
+          background: T.bgSecondary,
+        }}
+      >
+        {['#ECEDF3', '#ECEDF3', '#ECEDF3'].map((c, i) => (
+          <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: c }} />
+        ))}
+        <span
+          style={{
+            margin: '0 auto',
+            fontFamily: T.mono,
+            fontSize: 11,
+            color: T.textFaint,
+            background: T.bgTertiary,
+            padding: '3px 40px',
+            borderRadius: 6,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          taskspace.app.space
+        </span>
+      </div>
+
+      {/* board */}
+      <div style={{ display: 'flex', height: isMobile ? 240 : 310 }}>
+        {/* sidebar rail */}
+        {!isMobile && (
+          <div
+            style={{
+              width: 168,
+              flexShrink: 0,
+              background: T.bgSecondary,
+              borderRight: `1px solid ${T.border}`,
+              padding: '14px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ width: 18, height: 18, borderRadius: 6, background: T.accentGradient, flexShrink: 0 }} />
+              <SkeletonBar width={72} color="#E1E3EC" />
             </div>
-          ))}
+            <SkeletonBar width="90%" color="#F0ECFE" height={22} />
+            <SkeletonBar width="70%" />
+            <SkeletonBar width="80%" />
+            <SkeletonBar width="60%" />
+            <SkeletonBar width="75%" />
+          </div>
+        )}
+
+        {/* columns */}
+        <div style={{ flex: 1, minWidth: 0, padding: isMobile ? '14px 12px' : '16px 20px', display: 'flex', gap: isMobile ? 8 : 12 }}>
+          <MockColumn dotColor={T.gray} labelWidth={44}>
+            <MockCard>
+              <SkeletonBar width="80%" />
+              <SkeletonBar width="55%" />
+            </MockCard>
+            <MockCard>
+              <SkeletonBar width="65%" />
+            </MockCard>
+          </MockColumn>
+
+          <MockColumn dotColor={T.blue} labelWidth={50}>
+            {/* raised "Ready" top card */}
+            <MockCard
+              style={{
+                border: '1px solid #E0DCF5',
+                boxShadow: T.shadowCardRaised,
+              }}
+            >
+              <SkeletonBar width="85%" />
+              <SkeletonBar width="60%" />
+              <div style={{ height: 4, borderRadius: 3, background: '#EEEEF3', overflow: 'hidden', marginTop: 2 }}>
+                <div style={{ width: '62%', height: '100%', background: T.progressGradient }} />
+              </div>
+            </MockCard>
+            <MockCard>
+              <SkeletonBar width="70%" />
+            </MockCard>
+          </MockColumn>
+
+          <MockColumn dotColor={T.accent} labelWidth={40}>
+            <MockCard>
+              <SkeletonBar width="75%" />
+            </MockCard>
+            <MockCard>
+              <SkeletonBar width="85%" />
+              <SkeletonBar width="50%" />
+            </MockCard>
+          </MockColumn>
+
+          <MockColumn dotColor={T.green} labelWidth={36}>
+            <MockCard style={{ opacity: 0.6 }}>
+              <SkeletonBar width="70%" />
+            </MockCard>
+            <MockCard style={{ opacity: 0.6 }}>
+              <SkeletonBar width="55%" />
+            </MockCard>
+          </MockColumn>
         </div>
       </div>
-      {/* teammate edit toast */}
-      <motion.div
-        className="absolute -bottom-4 -left-3 sm:-left-6 flex items-center gap-2 rounded-full bg-card border border-border shadow-[0_2px_12px_0_rgba(0,0,0,0.08)] pl-1.5 pr-3 py-1.5"
-        initial={reduce ? false : { opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: reduce ? 0 : 2.6, duration: 0.4 }}
-      >
-        <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold grid place-items-center">M</span>
-        <span className="text-xs text-muted-foreground">Mia moved a card to Done</span>
-      </motion.div>
     </div>
   )
 }
 
 // ── Hero ─────────────────────────────────────────────────────────────────────
 
-function Hero() {
+function Hero({ isSignedIn }: { isSignedIn: boolean }) {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
+  const enterApp = () => navigate('/home')
+
   return (
-    <section className="max-w-6xl mx-auto px-6 pt-32 pb-20 md:pt-40 md:pb-28 grid md:grid-cols-[1fr_1.05fr] gap-14 items-center">
-      <div>
-        <motion.h1
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7 }}
-          className="text-5xl md:text-6xl font-bold tracking-[-0.02em] leading-[1.05] text-foreground"
-        >
-          Team tasks. Zero clutter.
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.25, duration: 0.6 }}
-          className="mt-6 text-lg text-muted-foreground max-w-md leading-relaxed"
-        >
-          A shared task list for small teams. Today, Upcoming, projects, and a
-          board — synced to everyone&rsquo;s screen, live.
-        </motion.p>
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.45, duration: 0.5 }}
-          className="mt-8 flex items-center gap-5"
-        >
-          <button
-            onClick={() => navigate('/home')}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 group"
-          >
-            Start free
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-          </button>
-          <span className="text-sm text-muted-foreground">No setup. Sign in and type.</span>
-        </motion.div>
-      </div>
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15, duration: 0.7 }}
+    <section style={{ padding: isMobile ? '48px 20px 40px' : '76px 40px 56px', textAlign: 'center' }}>
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 14px',
+          border: `1px solid ${T.borderCard}`,
+          borderRadius: 20,
+          fontSize: 11.5,
+          fontWeight: 600,
+          color: T.textMuted,
+          marginBottom: 26,
+          background: '#fff',
+        }}
       >
-        <HeroMockup />
-      </motion.div>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: T.green }} />
+        Open source · Built on DeepSpace
+      </div>
+
+      <h1
+        style={{
+          fontSize: isMobile ? 34 : 52,
+          fontWeight: 750,
+          letterSpacing: '-0.035em',
+          lineHeight: 1.05,
+          margin: '0 auto 20px',
+          color: T.textPrimary,
+          maxWidth: 680,
+        }}
+      >
+        The calm task manager
+        <br />
+        your team will actually use
+      </h1>
+
+      <p
+        style={{
+          fontSize: isMobile ? 16 : 18,
+          lineHeight: 1.6,
+          color: '#5A5D75',
+          margin: '0 auto 32px',
+          maxWidth: 540,
+        }}
+      >
+        Real-time tasks for your whole team — lists, boards, and projects in one calm, shared space.
+        No clutter, no busywork, just the work that matters today.
+      </p>
+
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <button
+          onClick={enterApp}
+          style={{
+            padding: '12px 22px',
+            border: 'none',
+            background: T.accent,
+            color: '#fff',
+            borderRadius: 11,
+            fontFamily: T.font,
+            fontSize: 15,
+            fontWeight: 600,
+            cursor: 'pointer',
+            boxShadow: T.shadowHeroGlow,
+            transition: 'transform 0.15s ease',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-1px)')}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+        >
+          {isSignedIn ? 'Open Taskspace' : 'Get started free'}
+        </button>
+        <a
+          href={REPO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '12px 22px',
+            border: `1px solid ${T.borderCard}`,
+            background: '#fff',
+            color: '#2C2E38',
+            borderRadius: 11,
+            fontFamily: T.font,
+            fontSize: 15,
+            fontWeight: 550,
+            cursor: 'pointer',
+            textDecoration: 'none',
+            transition: 'border-color 0.15s ease, background-color 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = T.checkboxBorder
+            e.currentTarget.style.background = T.bgSecondary
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = T.borderCard
+            e.currentTarget.style.background = '#fff'
+          }}
+        >
+          <GitHubGlyph size={17} />
+          Star on GitHub
+        </a>
+      </div>
+
+      <ProductMock isMobile={isMobile} />
     </section>
   )
 }
 
-// ── Features — editorial rows, one visual per claim ──────────────────────────
+// ── Feature trio ─────────────────────────────────────────────────────────────
 
-function ListVisual() {
-  return (
-    <div className="rounded-xl bg-card border border-border p-4 space-y-2">
-      {[
-        { label: 'Today', count: 3, active: true },
-        { label: 'Upcoming', count: 8, active: false },
-        { label: 'Logbook', count: 42, active: false },
-      ].map((v) => (
-        <div
-          key={v.label}
-          className={'flex items-center justify-between rounded-lg px-3 py-2 text-sm ' + (v.active ? 'bg-primary/10 text-foreground font-medium' : 'text-muted-foreground')}
-        >
-          <span className="flex items-center gap-2.5"><CalendarDays className="w-4 h-4" />{v.label}</span>
-          <span className="text-xs tabular-nums">{v.count}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function BoardVisual() {
-  return (
-    <div className="rounded-xl bg-card border border-border p-4 grid grid-cols-3 gap-2.5">
-      {[2, 1, 3].map((cards, col) => (
-        <div key={col} className="rounded-lg bg-muted p-2 space-y-1.5">
-          <div className="h-1.5 w-8 rounded bg-border" />
-          {Array.from({ length: cards }).map((_, i) => (
-            <div key={i} className="h-8 rounded bg-card border border-border" />
-          ))}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function PresenceVisual() {
-  return (
-    <div className="rounded-xl bg-card border border-border p-4">
-      <div className="flex items-center gap-2">
-        {['M', 'J', 'R'].map((initial) => (
-          <span key={initial} className="w-8 h-8 rounded-full bg-primary/15 text-primary text-xs font-semibold grid place-items-center">
-            {initial}
-          </span>
-        ))}
-        <span className="text-sm text-muted-foreground ml-1">3 teammates here now</span>
-      </div>
-      <div className="mt-3 flex items-center gap-3 rounded-lg bg-muted px-3 py-2.5">
-        <span className="w-2 h-2 rounded-full bg-success" />
-        <span className="text-sm text-foreground">&ldquo;Ship pricing page&rdquo; assigned to Mia</span>
-      </div>
-    </div>
-  )
-}
-
-function AssistantVisual() {
-  return (
-    <div className="rounded-xl bg-card border border-border p-4 space-y-2.5">
-      <div className="ml-auto max-w-[80%] rounded-xl rounded-br-sm bg-primary text-primary-foreground text-sm px-3.5 py-2 w-fit">
-        Split the launch into tasks for this week
-      </div>
-      <div className="max-w-[85%] rounded-xl rounded-bl-sm bg-muted text-foreground text-sm px-3.5 py-2 w-fit">
-        Done — 5 tasks created in Launch, 2 due today.
-      </div>
-    </div>
-  )
-}
-
-const FEATURES: Array<{ icon: typeof CalendarDays; kicker: string; title: string; body: string; visual: () => ReactNode }> = [
-  {
-    icon: CalendarDays,
-    kicker: 'Views',
-    title: 'One question per view.',
-    body: 'Today answers "what now." Upcoming answers "what next." Logbook remembers what shipped. No dashboard to configure.',
-    visual: () => <ListVisual />,
-  },
+const FEATURES: Array<{
+  icon: typeof Columns3
+  tint: string
+  iconColor: string
+  title: string
+  body: string
+}> = [
   {
     icon: Columns3,
-    kicker: 'Board',
-    title: 'A board when you want one.',
-    body: 'The same tasks, as columns. Drag a card and the list updates too — one source of truth, two ways to see it.',
-    visual: () => <BoardVisual />,
+    tint: T.accentTint,
+    iconColor: T.accent,
+    title: 'List, Board & Calendar',
+    body: 'See every project as a list, a board, or a calendar. Switch views in a click — same tasks, seen the way that fits the moment.',
+  },
+  {
+    icon: ListChecks,
+    tint: T.blueSoft,
+    iconColor: T.blue,
+    title: 'Priorities & subtasks',
+    body: 'Break big work into subtasks, flag what matters, and watch progress fill in as your team checks things off.',
   },
   {
     icon: Users,
-    kicker: 'Live',
-    title: 'Everyone on the same page.',
-    body: 'Edits land on every teammate’s screen in real time. Assign, comment, reorder — nobody refreshes, nobody merges.',
-    visual: () => <PresenceVisual />,
-  },
-  {
-    icon: Sparkles,
-    kicker: 'Assistant',
-    title: 'An assistant inside the list.',
-    body: 'Ask it to plan a week, split a project, or clean up overdue tasks. It works on your actual tasks, not a chat log.',
-    visual: () => <AssistantVisual />,
+    tint: T.greenSoft,
+    iconColor: T.green,
+    title: 'Real-time teamwork',
+    body: 'Assign, comment, and reorder together. Every change lands on your teammates’ screens the instant you make it.',
   },
 ]
 
 function Features() {
+  const isMobile = useIsMobile()
   return (
-    <section id="features" className="max-w-6xl mx-auto px-6 py-24 md:py-32">
-      <ScrollReveal className="mb-16">
-        <h2 className="text-4xl md:text-5xl font-bold tracking-[-0.02em] text-foreground leading-[1.1] max-w-2xl">
-          Everything a team needs. Nothing it has to manage.
-        </h2>
-      </ScrollReveal>
-      <div className="space-y-16 md:space-y-20">
-        {FEATURES.map((f, i) => (
-          <ScrollReveal key={f.title}>
-            <div className={'grid md:grid-cols-2 gap-8 md:gap-16 items-center'}>
-              <div className={i % 2 === 1 ? 'md:order-2' : undefined}>
-                <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-                  <f.icon className="w-4 h-4" />
-                  {f.kicker}
-                </span>
-                <h3 className="mt-3 text-2xl md:text-3xl font-semibold tracking-tight text-foreground">{f.title}</h3>
-                <p className="mt-3 text-muted-foreground leading-relaxed max-w-md">{f.body}</p>
-              </div>
-              <div className={i % 2 === 1 ? 'md:order-1' : undefined}>{f.visual()}</div>
-            </div>
-          </ScrollReveal>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-// ── Positioning band ─────────────────────────────────────────────────────────
-
-function Positioning() {
-  return (
-    <section className="bg-muted">
-      <div className="max-w-4xl mx-auto px-6 py-20 md:py-24 text-center">
-        <ScrollReveal>
-          <p className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground leading-snug">
-            Everything-apps make work about the app.
-          </p>
-          <p className="mt-4 text-lg text-muted-foreground max-w-xl mx-auto">
-            Taskspace stays a list. Your team stays on the work.
-          </p>
-        </ScrollReveal>
-      </div>
-    </section>
-  )
-}
-
-// ── CTA ──────────────────────────────────────────────────────────────────────
-
-function CTA() {
-  const navigate = useNavigate()
-  return (
-    <section className="bg-primary text-primary-foreground">
-      <div className="max-w-4xl mx-auto px-6 py-20 md:py-24 text-center">
-        <ScrollReveal>
-          <h2 className="text-4xl md:text-5xl font-bold tracking-[-0.02em] leading-tight">
-            Your team&rsquo;s week, in one list.
-          </h2>
-          <button
-            onClick={() => navigate('/home')}
-            className="mt-8 inline-flex items-center gap-2 px-7 py-3.5 rounded-md bg-background text-foreground text-sm font-medium hover:opacity-90 group"
+    <section
+      id="features"
+      style={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: 18,
+        padding: isMobile ? '8px 20px 48px' : '8px 40px 56px',
+        maxWidth: 1120,
+        margin: '0 auto',
+      }}
+    >
+      {FEATURES.map((f) => {
+        const Icon = f.icon
+        return (
+          <div
+            key={f.title}
+            style={{
+              flex: 1,
+              background: T.bgSecondary,
+              border: `1px solid ${T.borderTabs}`,
+              borderRadius: 14,
+              padding: 22,
+            }}
           >
-            Open Taskspace
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-          </button>
-        </ScrollReveal>
-      </div>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: f.tint,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 14,
+              }}
+            >
+              <Icon size={20} color={f.iconColor} strokeWidth={2} />
+            </div>
+            <h4 style={{ fontSize: 16, fontWeight: 650, margin: '0 0 6px', color: T.textPrimary }}>{f.title}</h4>
+            <p style={{ fontSize: 13.5, lineHeight: 1.6, color: T.textMuted, margin: 0 }}>{f.body}</p>
+          </div>
+        )
+      })}
     </section>
   )
 }
@@ -411,43 +539,72 @@ function CTA() {
 // ── Footer ───────────────────────────────────────────────────────────────────
 
 export function SiteFooter() {
+  const isMobile = useIsMobile()
+
+  const footLink: React.CSSProperties = {
+    fontSize: 12.5,
+    color: T.textFaint,
+    textDecoration: 'none',
+    fontFamily: T.font,
+    transition: 'color 0.15s ease',
+  }
+  const hoverIn = (e: React.MouseEvent<HTMLElement>) => (e.currentTarget.style.color = T.textMuted)
+  const hoverOut = (e: React.MouseEvent<HTMLElement>) => (e.currentTarget.style.color = T.textFaint)
+
   return (
-    <footer className="border-t border-border bg-background">
-      <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col md:flex-row md:items-start justify-between gap-8">
-        <div>
-          <span className="font-semibold tracking-tight text-foreground">Taskspace</span>
-          <p className="mt-2 text-sm text-muted-foreground max-w-xs">
-            A real-time shared task list for small teams.
-          </p>
-        </div>
-        <nav className="flex gap-12 text-sm" aria-label="Footer">
-          <div className="space-y-2.5 flex flex-col">
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Product</span>
-            <a href="/#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</a>
-            <a href="/home" className="text-muted-foreground hover:text-foreground transition-colors">Open the app</a>
-          </div>
-          <div className="space-y-2.5 flex flex-col">
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Company</span>
-            <a href="mailto:contact@deep.space" className="text-muted-foreground hover:text-foreground transition-colors">Contact</a>
-            <a href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">Terms</a>
-            <a
-              href="https://x.com/deepdotspace"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Follow on X
-            </a>
-          </div>
-        </nav>
-      </div>
-      <div className="border-t border-border">
-        <div className="max-w-6xl mx-auto px-6 py-4 text-xs text-muted-foreground flex items-center justify-between">
-          <span>&copy; {new Date().getFullYear()} DeepSpace</span>
-          <a href="https://deep.space" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
-            Built with DeepSpace
-          </a>
-        </div>
+    <footer
+      style={{
+        borderTop: `1px solid ${T.borderTabs}`,
+        padding: isMobile ? '22px 20px' : '28px 40px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 18,
+        flexWrap: 'wrap',
+        background: T.bgSecondary,
+      }}
+    >
+      <span style={{ fontSize: 12.5, color: T.textFaint }}>© DeepSpace 2026</span>
+      <a href="mailto:contact@deep.space" style={footLink} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+        Contact
+      </a>
+      <a href="/terms" style={footLink} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+        Terms
+      </a>
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14 }}>
+        <a
+          href={X_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Follow on X"
+          style={{ display: 'inline-flex', color: T.textFaint }}
+          onMouseEnter={(e) => {
+            const svg = e.currentTarget.querySelector('svg')
+            if (svg) svg.setAttribute('fill', T.textMuted)
+          }}
+          onMouseLeave={(e) => {
+            const svg = e.currentTarget.querySelector('svg')
+            if (svg) svg.setAttribute('fill', T.textFaint)
+          }}
+        >
+          <XGlyph size={16} />
+        </a>
+        <a
+          href={REPO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="GitHub"
+          style={{ display: 'inline-flex', color: T.textFaint }}
+          onMouseEnter={(e) => {
+            const svg = e.currentTarget.querySelector('svg')
+            if (svg) svg.setAttribute('fill', T.textMuted)
+          }}
+          onMouseLeave={(e) => {
+            const svg = e.currentTarget.querySelector('svg')
+            if (svg) svg.setAttribute('fill', T.textFaint)
+          }}
+        >
+          <GitHubGlyph size={16} fill={T.textFaint} />
+        </a>
       </div>
     </footer>
   )
@@ -458,19 +615,23 @@ export function SiteFooter() {
 export default function Index() {
   const { isLoaded, isSignedIn } = useAuth()
 
-  // Signed-in users skip the marketing page entirely.
+  // Signed-in users skip the marketing page entirely (unchanged behavior).
   if (isLoaded && isSignedIn) return <Navigate to="/home" replace />
 
   return (
-    <MotionConfig reducedMotion="user">
-      <div className="min-h-screen bg-background text-foreground">
-        <LandingNav />
-        <Hero />
-        <Features />
-        <Positioning />
-        <CTA />
-        <SiteFooter />
-      </div>
-    </MotionConfig>
+    <div
+      style={{
+        minHeight: '100vh',
+        background: '#fff',
+        color: T.textPrimary,
+        fontFamily: T.font,
+        overflowX: 'hidden',
+      }}
+    >
+      <LandingNav isSignedIn={isSignedIn} />
+      <Hero isSignedIn={isSignedIn} />
+      <Features />
+      <SiteFooter />
+    </div>
   )
 }

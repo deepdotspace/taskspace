@@ -31,7 +31,7 @@ export default function ConfirmModal({
         <div style={styles.modalHeader}>
           <h3 style={styles.modalTitle}>{title}</h3>
           <button onClick={onCancel} style={styles.modalClose}>
-            <Icon name="x" size={18} color="#8E8E93" />
+            <Icon name="x" size={18} color="#9CA0B8" />
           </button>
         </div>
         <div style={styles.confirmModalBody}>{message}</div>

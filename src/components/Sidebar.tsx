@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Search, Star } from 'lucide-react';
 import { signOut } from 'deepspace';
 import { Icon } from '../utils/icons';
-import { styles } from '../utils/styles';
+import { styles, T } from '../utils/styles';
 import {
   VIEWS, ViewState, Task, Project, Tag,
   ProjectTreeNode, TaskUser, WidgetUser, getUserColor,
@@ -37,6 +38,9 @@ interface SidebarProps {
   isReadOnly: boolean;
   onSignIn?: () => void;
   teamSelector?: React.ReactNode;
+  // Search (controlled by parent) — filters the task list. ⌘K / Ctrl+K focuses it.
+  searchQuery: string;
+  onSearchChange: (q: string) => void;
   // Mobile props
   isMobile?: boolean;
   isMobileOpen?: boolean;
@@ -180,46 +184,46 @@ function ProjectTreeItem({
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 4,
-          padding: '5px 8px',
-          paddingLeft: 8 + depth * 16,
-          borderRadius: 6,
+          gap: 9,
+          padding: '6px 10px',
+          paddingLeft: 10 + depth * 16,
+          borderRadius: 8,
           cursor: 'grab',
           transition: 'background-color 0.15s ease',
           position: 'relative' as const,
-          ...(isActive ? { backgroundColor: 'rgba(99,102,241,0.1)' } : {}),
-          ...(isTaskDragOver ? { backgroundColor: 'rgba(99,102,241,0.1)' } : {}),
+          ...(isActive ? { backgroundColor: T.accentTint } : (isHovered ? styles.sidebarItemHover : {})),
+          ...(isTaskDragOver ? { backgroundColor: T.accentTint, boxShadow: 'inset 0 0 0 2px rgba(107,76,230,0.3)' } : {}),
         }}
       >
         {/* Drop indicator lines for project reordering */}
         {dropPosition === 'before' && (
-          <div style={{ position: 'absolute', left: 8, right: 8, top: 0, height: 2, backgroundColor: '#6366f1', borderRadius: 1, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: 10, right: 10, top: 0, height: 2, backgroundColor: T.accent, borderRadius: 1, pointerEvents: 'none' }} />
         )}
         {dropPosition === 'after' && (
-          <div style={{ position: 'absolute', left: 8, right: 8, bottom: 0, height: 2, backgroundColor: '#6366f1', borderRadius: 1, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: 10, right: 10, bottom: 0, height: 2, backgroundColor: T.accent, borderRadius: 1, pointerEvents: 'none' }} />
         )}
         {dropPosition === 'inside' && (
-          <div style={{ position: 'absolute', left: 4, right: 4, top: 4, bottom: 4, border: '2px dashed #6366f1', borderRadius: 4, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: 4, right: 4, top: 4, bottom: 4, border: `2px dashed ${T.accent}`, borderRadius: 6, pointerEvents: 'none' }} />
         )}
 
         {/* Expand/collapse button */}
         <button
           onClick={(e) => { e.stopPropagation(); toggleExpand(node.id); }}
           style={{
-            width: 18, height: 18, border: 'none', background: 'none',
+            width: 12, height: 18, border: 'none', background: 'none',
             cursor: 'pointer', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', padding: 0, flexShrink: 0,
+            justifyContent: 'center', padding: 0, flexShrink: 0, marginRight: -3,
           }}
         >
           {hasChildren ? (
-            <Icon name={isExpanded ? 'chevron-down' : 'chevron-right'} size={12} color="#86868B" />
+            <Icon name={isExpanded ? 'chevron-down' : 'chevron-right'} size={12} color={T.textFaintest} strokeWidth={2.4} />
           ) : (
             <span style={{ width: 12 }} />
           )}
         </button>
 
         {/* Project color dot */}
-        <span style={{ ...styles.projectDot, backgroundColor: node.color || '#6366f1' }} />
+        <span style={{ ...styles.projectDot, backgroundColor: node.color || T.accentAvatar }} />
 
         {/* Click area for selecting */}
         <button
@@ -230,7 +234,8 @@ function ProjectTreeItem({
           }}
         >
           <span style={{
-            fontSize: 13, color: '#3C3C43',
+            fontSize: 13, fontWeight: 550,
+            color: isActive ? T.accentStrong : T.textSecondary,
             overflow: 'hidden', textOverflow: 'ellipsis',
             whiteSpace: 'nowrap' as const, display: 'block',
           }}>
@@ -240,7 +245,7 @@ function ProjectTreeItem({
 
         {/* Task count */}
         {node.totalTaskCount > 0 && !isHovered && (
-          <span style={{ fontSize: 11, color: '#AEAEB2', flexShrink: 0 }}>
+          <span style={{ fontFamily: T.mono, fontSize: 11, color: T.textFaint, flexShrink: 0 }}>
             {`${node.totalTaskCount - (node.totalCompleted || 0)}/${node.totalTaskCount}`}
           </span>
         )}
@@ -261,7 +266,7 @@ function ProjectTreeItem({
                 }}
                 title="Add sub-project"
               >
-                <Icon name="plus" size={12} color="#86868B" />
+                <Icon name="plus" size={12} color={T.textFaint} />
               </button>
             )}
             {onEditProject && (
@@ -274,7 +279,7 @@ function ProjectTreeItem({
                 }}
                 title="Edit project"
               >
-                <Icon name="pencil" size={12} color="#86868B" />
+                <Icon name="pencil" size={12} color={T.textFaint} />
               </button>
             )}
           </div>
@@ -312,6 +317,7 @@ function UserListItem({
   isReadOnly: boolean;
 }) {
   const [isTaskDragOver, setIsTaskDragOver] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   const handleDragOver = (e: React.DragEvent) => {
     if (isReadOnly) return;
@@ -346,24 +352,27 @@ function UserListItem({
   return (
     <button
       onClick={() => onViewChange({ type: VIEWS.USER, id: user.id })}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       style={{
         ...sidebarStyles.listItem,
-        ...(isActive ? sidebarStyles.listItemActive : {}),
+        ...(isActive ? sidebarStyles.listItemActive : (isHovered ? styles.sidebarItemHover : {})),
         ...(isTaskDragOver ? sidebarStyles.listItemDragOver : {}),
       }}
     >
       <span style={{
         ...sidebarStyles.userAvatar,
-        backgroundColor: user.isPending ? '#E5E5EA' : (user.color || '#6366f1'),
+        backgroundColor: user.isPending ? '#E5E5EA' : (user.color || T.accentAvatar),
         color: user.isPending ? '#8E8E93' : 'white',
       }}>
         {user.isPending ? '✉' : (displayName?.charAt(0).toUpperCase() || '?')}
       </span>
       <span style={{
         ...sidebarStyles.listLabel,
+        ...(isActive ? { color: T.accentStrong, fontWeight: 600 } : {}),
         ...(user.isPending ? { color: '#8E8E93' } : {}),
       }}>{displayName}</span>
       {isYou && <span style={sidebarStyles.youBadge}>You</span>}
@@ -396,6 +405,7 @@ function UnassignedListItem({
   isReadOnly: boolean;
 }) {
   const [isTaskDragOver, setIsTaskDragOver] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   const handleDragOver = (e: React.DragEvent) => {
     if (isReadOnly) return;
@@ -430,68 +440,123 @@ function UnassignedListItem({
   return (
     <button
       onClick={() => onViewChange({ type: VIEWS.USER, id: 'unassigned' })}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       style={{
         ...sidebarStyles.listItem,
-        ...(isActive ? sidebarStyles.listItemActive : {}),
+        ...(isActive ? sidebarStyles.listItemActive : (isHovered ? styles.sidebarItemHover : {})),
         ...(isTaskDragOver ? sidebarStyles.listItemDragOver : {}),
       }}
     >
-      <span style={sidebarStyles.userAvatar}>?</span>
-      <span style={sidebarStyles.listLabel}>Unassigned</span>
+      <span style={{ ...sidebarStyles.userAvatar, backgroundColor: '#C7C7CC' }}>?</span>
+      <span style={{
+        ...sidebarStyles.listLabel,
+        ...(isActive ? { color: T.accentStrong, fontWeight: 600 } : {}),
+      }}>Unassigned</span>
       <span style={sidebarStyles.listCount}>{`${unassignedTotal - unassignedCompleted}/${unassignedTotal}`}</span>
     </button>
   );
 }
 
-// Local styles for sidebar sub-components (matching old widget)
+// Local styles for sidebar sub-components (Momentum design)
 const sidebarStyles: Record<string, React.CSSProperties> = {
   listItem: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    padding: '7px 10px', borderRadius: 6, border: 'none',
+    display: 'flex', alignItems: 'center', gap: 9,
+    padding: '6px 10px', borderRadius: 8, border: 'none',
     backgroundColor: 'transparent', cursor: 'pointer',
     width: '100%', textAlign: 'left',
     transition: 'background-color 0.15s ease',
     outline: 'none', background: 'none',
   },
   listItemActive: {
-    backgroundColor: 'rgba(0,0,0,0.04)',
+    backgroundColor: T.accentTint,
   },
   listItemDragOver: {
-    backgroundColor: 'rgba(99,102,241,0.12)',
-    boxShadow: 'inset 0 0 0 2px rgba(99,102,241,0.3)',
+    backgroundColor: T.accentTint,
+    boxShadow: 'inset 0 0 0 2px rgba(107,76,230,0.3)',
     borderRadius: 8,
   },
   userAvatar: {
-    width: 20, height: 20, borderRadius: '50%',
-    backgroundColor: '#C7C7CC', color: 'white',
-    fontSize: 11, fontWeight: 600,
+    width: 22, height: 22, borderRadius: '50%',
+    backgroundColor: T.accentAvatar, color: 'white',
+    fontSize: 10, fontWeight: 600,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
   },
   listLabel: {
-    flex: 1, fontSize: 13, color: '#3C3C43',
+    flex: 1, fontSize: 13, fontWeight: 500, color: T.textSecondary,
     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
   },
   listCount: {
-    fontSize: 12, color: '#AEAEB2',
+    fontFamily: T.mono, fontSize: 11, color: T.textFaint, flexShrink: 0,
   },
   youBadge: {
-    fontSize: 10, fontWeight: 500,
-    padding: '2px 8px', borderRadius: 10,
-    backgroundColor: 'rgba(99, 102, 241, 0.12)', color: '#6366f1',
-    letterSpacing: 0.2,
+    fontSize: 10, fontWeight: 600,
+    padding: '1px 7px', borderRadius: 20,
+    backgroundColor: T.accentTint2, color: '#8B6CE6',
+    letterSpacing: 0.2, flexShrink: 0,
   },
   invitedBadge: {
-    fontSize: 9, fontWeight: 500,
-    padding: '1px 6px', borderRadius: 8,
-    backgroundColor: 'rgba(255, 149, 0, 0.12)', color: '#FF9500',
+    fontSize: 9, fontWeight: 600,
+    padding: '1px 7px', borderRadius: 20,
+    backgroundColor: T.orangeSoft, color: T.orange,
     letterSpacing: 0.2,
     flexShrink: 0,
   },
 };
+
+// Header + search styles (Momentum)
+const hdr = {
+  logoTile: {
+    width: 28, height: 28, borderRadius: 8, background: T.accentGradient,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    boxShadow: '0 2px 8px rgba(107,76,230,.4)', flexShrink: 0,
+  } as React.CSSProperties,
+  wordmark: {
+    fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em', color: T.textPrimary,
+  } as React.CSSProperties,
+  addTile: {
+    marginLeft: 'auto', width: 22, height: 22, borderRadius: 6,
+    background: T.accentTint, display: 'flex', alignItems: 'center',
+    justifyContent: 'center', border: 'none', cursor: 'pointer',
+    flexShrink: 0, padding: 0, transition: 'opacity 0.15s ease',
+  } as React.CSSProperties,
+  searchWrap: {
+    padding: '10px 10px 0',
+  } as React.CSSProperties,
+  searchRow: {
+    display: 'flex', alignItems: 'center', gap: 9, padding: '6px 10px',
+    background: '#fff', border: `1px solid ${T.borderBtn}`, borderRadius: 8,
+  } as React.CSSProperties,
+  searchInput: {
+    flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
+    fontSize: 12.5, color: T.textPrimary, fontFamily: T.font, padding: 0,
+  } as React.CSSProperties,
+  kbdChip: {
+    fontFamily: T.mono, fontSize: 10, color: T.textFaintest, lineHeight: 1.4,
+    border: `1px solid ${T.borderBtn}`, borderRadius: 4, padding: '1px 5px', flexShrink: 0,
+  } as React.CSSProperties,
+};
+
+/** Nav icon color + fill, honoring per-item accent (Today star, Logbook green, etc.). */
+function NavIcon({ type, icon, isActive }: { type: string; icon: string; isActive: boolean }) {
+  if (type === VIEWS.TODAY) {
+    const c = isActive ? T.accent : T.orange;
+    return (
+      <span style={{ display: 'inline-flex', flexShrink: 0 }}>
+        <Star size={16} color={c} fill={c} strokeWidth={1} />
+      </span>
+    );
+  }
+  let color: string = T.textMuted;
+  if (isActive) color = T.accent;
+  else if (type === VIEWS.LOGBOOK) color = T.green;
+  else if (type === VIEWS.TRASH) color = T.textFaint;
+  return <Icon name={icon} size={16} color={color} />;
+}
 
 function Sidebar(props: SidebarProps) {
   const {
@@ -504,10 +569,25 @@ function Sidebar(props: SidebarProps) {
     allUsers, currentUser, onManageUsers,
     width, getDisplayName, isReadOnly,
     onSignIn, teamSelector,
+    searchQuery, onSearchChange,
     isMobile, isMobileOpen, onMobileClose,
   } = props;
 
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set());
+  const [hoveredNav, setHoveredNav] = useState<string | null>(null);
+
+  // Search input + ⌘K / Ctrl+K focus shortcut
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   // Project drag-and-drop state for reordering
   const [projectDragState, setProjectDragState] = useState<{
@@ -641,22 +721,67 @@ function Sidebar(props: SidebarProps) {
       className={isMobileOpen ? 'mobile-sidebar-open' : ''}
       style={{ ...styles.sidebar, width: isMobile ? 280 : width }}
     >
-      <div style={{ ...styles.sidebarHeader, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 15, fontWeight: 600, color: '#1D1D1F' }}>Taskspace</span>
-        {/* Close button — visible only on mobile via CSS */}
-        {onMobileClose && (
-          <button className="mobile-sidebar-close" onClick={onMobileClose} aria-label="Close sidebar">
+      <style>{`.ts-sidebar-search::placeholder{color:${T.textFaint};opacity:1}`}</style>
+      <div style={styles.sidebarHeader}>
+        <div style={hdr.logoTile}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 11l3 3L22 4" />
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+          </svg>
+        </div>
+        <span style={hdr.wordmark}>Taskspace</span>
+        {!isReadOnly && onAddProject && (
+          <button
+            type="button"
+            data-testid="sidebar-header-add-btn"
+            onClick={() => onAddProject(null)}
+            style={hdr.addTile}
+            title="New project"
+            aria-label="New project"
+          >
+            <Icon name="plus" size={14} color={T.accent} strokeWidth={2.2} />
+          </button>
+        )}
+        {/* Close button — mobile only */}
+        {isMobile && onMobileClose && (
+          <button
+            className="mobile-sidebar-close"
+            onClick={onMobileClose}
+            aria-label="Close sidebar"
+            style={{ marginLeft: (!isReadOnly && onAddProject) ? 4 : 'auto' }}
+          >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 6 6 18" /><path d="m6 6 12 12" />
             </svg>
           </button>
         )}
       </div>
-      {teamSelector}
+
+      {/* Search */}
+      <div style={hdr.searchWrap}>
+        <div style={hdr.searchRow}>
+          <Search size={14} color={T.textFaint} strokeWidth={2} style={{ flexShrink: 0 }} />
+          <input
+            ref={searchInputRef}
+            className="ts-sidebar-search"
+            data-testid="sidebar-search-input"
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search"
+            style={hdr.searchInput}
+          />
+          <span style={hdr.kbdChip}>⌘K</span>
+        </div>
+      </div>
+
+      {teamSelector && <div style={{ padding: '10px 10px 0' }}>{teamSelector}</div>}
+
       <div style={styles.sidebarNav}>
         {/* Nav items */}
         {NAV_ITEMS.map(item => {
           const isActive = currentView.type === item.type;
+          const isHovered = hoveredNav === item.type;
           const count = taskCounts[item.countKey as keyof typeof taskCounts];
           const displayCount = item.countKey === 'logbook' || item.countKey === 'trash'
             ? count.total
@@ -667,20 +792,18 @@ function Sidebar(props: SidebarProps) {
               key={item.type}
               data-nav-item
               data-testid={`nav-${item.countKey}`}
+              onMouseEnter={() => setHoveredNav(item.type)}
+              onMouseLeave={() => setHoveredNav(prev => (prev === item.type ? null : prev))}
               onClick={(e) => {
                 (e.currentTarget as HTMLElement).blur();
                 handleMobileViewChange({ type: item.type });
               }}
               style={{
                 ...styles.sidebarItem,
-                ...(isActive ? styles.sidebarItemActive : {}),
+                ...(isActive ? styles.sidebarItemActive : (isHovered ? styles.sidebarItemHover : {})),
               }}
             >
-              <Icon
-                name={item.icon}
-                size={16}
-                color={isActive ? '#fff' : '#636366'}
-              />
+              <NavIcon type={item.type} icon={item.icon} isActive={isActive} />
               <span style={{ flex: 1 }}>{item.label}</span>
               {displayCount > 0 && (
                 <span style={{
@@ -704,7 +827,7 @@ function Sidebar(props: SidebarProps) {
                 onClick={() => onAddProject(null)}
                 style={styles.sidebarAddBtn}
               >
-                <Icon name="plus" size={14} color="#8E8E93" />
+                <Icon name="plus" size={14} color={T.textFaint} />
               </button>
             )}
           </div>
@@ -716,8 +839,8 @@ function Sidebar(props: SidebarProps) {
           <div style={styles.sidebarSectionHeader}>
             <span>People</span>
             {!isReadOnly && onManageUsers && (
-              <button onClick={onManageUsers} style={styles.sidebarAddBtn}>
-                <Icon name="settings" size={14} color="#8E8E93" />
+              <button onClick={onManageUsers} style={styles.sidebarAddBtn} title="Manage members" aria-label="Manage members">
+                <Icon name="settings" size={14} color={T.textFaint} />
               </button>
             )}
           </div>
@@ -775,7 +898,7 @@ function Sidebar(props: SidebarProps) {
               style={styles.sidebarSignOutBtn}
               title="Sign out"
             >
-              <Icon name="log-out" size={16} color="#8E8E93" />
+              <Icon name="log-out" size={16} color={T.textFaintest} />
             </button>
           </div>
         ) : (

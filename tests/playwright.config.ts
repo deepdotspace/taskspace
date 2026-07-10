@@ -15,7 +15,7 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: 'npx vite',
+    command: `npx vite --port ${PORT} --strictPort`,
     cwd: '..',
     port: PORT,
     reuseExistingServer: true,

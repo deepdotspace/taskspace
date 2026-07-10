@@ -1,17 +1,28 @@
 /**
- * Kanban Board View
+ * Kanban Board View — "Momentum" restyle
  *
  * Renders 5 columns (Backlog, Ready, In Progress, Review, Done).
- * Cards show task title + project name. Click opens KanbanCardModal.
+ * Cards show priority, title, project chip + assignee avatar.
+ * Click opens KanbanCardModal.
  * HTML5 drag-and-drop moves tasks between columns (updates kanbanStatus).
+ *
+ * UI-only restyle: all props, drag-drop logic, click-to-open and empty
+ * states are preserved. DOM hooks (className "kanban-column"/"kanban-card",
+ * data-kanban-board, data-kanban-column) kept for mobile CSS.
  */
 
 import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { Flag } from 'lucide-react';
 import {
   Task,
   Project,
   KANBAN_STATUS_CONFIG,
+  PRIORITY_LABELS,
+  PRIORITY_COLORS,
+  PRIORITY_SOFT_COLORS,
+  getUserColor,
 } from '../constants';
+import { T } from '../utils/styles';
 import KanbanCardModal from './KanbanCardModal';
 
 interface KanbanBoardProps {
@@ -20,6 +31,15 @@ interface KanbanBoardProps {
   onUpdateTask: (id: string, updates: Partial<Task>) => void;
   onCompleteTask: (id: string) => void;
   isReadOnly: boolean;
+}
+
+/** Up-to-2-letter uppercase initials from a display name. */
+function initialsOf(name?: string | null): string {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 function KanbanBoard({
@@ -71,9 +91,10 @@ function KanbanBoard({
     ghost.textContent = task.title;
     ghost.style.cssText = `
       position: fixed; top: -1000px; left: -1000px;
-      padding: 8px 14px; background: #fff; border-radius: 8px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-      font-size: 13px; font-weight: 500; color: #1D1D1F;
+      padding: 8px 14px; background: #fff; border-radius: 10px;
+      box-shadow: 0 6px 16px -6px rgba(107,76,230,0.28);
+      font-family: ${T.font};
+      font-size: 12.5px; font-weight: 500; color: #1B1C2E;
       max-width: 200px; overflow: hidden; white-space: nowrap;
       text-overflow: ellipsis;
     `;
@@ -167,16 +188,14 @@ function KanbanBoard({
             >
               {/* Column header */}
               <div style={boardStyles.columnHeader}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: 3,
-                    backgroundColor: col.color,
-                    flexShrink: 0,
-                  }} />
-                  <span style={boardStyles.columnTitle}>{col.label}</span>
-                </div>
+                <span style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: 3,
+                  backgroundColor: col.color,
+                  flexShrink: 0,
+                }} />
+                <span style={boardStyles.columnTitle}>{col.label}</span>
                 <span style={boardStyles.columnCount}>{col.tasks.length}</span>
               </div>
 
@@ -188,6 +207,15 @@ function KanbanBoard({
                 {col.tasks.map(task => {
                   const project = task.projectId ? projectMap[task.projectId] : null;
                   const isDragging = draggedTaskId === task.id;
+                  const isDone = task.completed;
+                  const hasPriority = task.priority && task.priority !== 'none';
+                  const priorityColor = PRIORITY_COLORS[task.priority] || T.gray;
+                  const assignee = task.assignedUser;
+                  const avatarColor = assignee
+                    ? (assignee.color || getUserColor(assignee.id))
+                    : T.gray;
+                  const showFooter = !isDone && (!!project || !!assignee);
+
                   return (
                     <div
                       key={task.id}
@@ -200,27 +228,44 @@ function KanbanBoard({
                       style={{
                         ...boardStyles.card,
                         ...(isDragging ? boardStyles.cardDragging : {}),
-                        ...(task.completed ? boardStyles.cardCompleted : {}),
+                        ...(isDone ? boardStyles.cardCompleted : {}),
                       }}
                     >
+                      {/* Priority row */}
+                      {!isDone && hasPriority && (
+                        <div style={boardStyles.cardPriorityRow}>
+                          <Flag size={11} color={priorityColor} fill={priorityColor} strokeWidth={1} />
+                          <span style={{ ...boardStyles.cardPriorityLabel, color: priorityColor }}>
+                            {(PRIORITY_LABELS[task.priority] || '').toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Title */}
                       <div style={{
                         ...boardStyles.cardTitle,
-                        ...(task.completed ? boardStyles.cardTitleCompleted : {}),
+                        ...(isDone ? boardStyles.cardTitleCompleted : {}),
                       }}>
                         {task.title}
                       </div>
-                      {project && (
-                        <div style={boardStyles.cardProject}>
-                          <span style={{
-                            width: 7,
-                            height: 7,
-                            borderRadius: '50%',
-                            backgroundColor: project.color || '#007AFF',
-                            flexShrink: 0,
-                          }} />
-                          <span style={boardStyles.cardProjectName}>
-                            {project.title}
-                          </span>
+
+                      {/* Footer: project chip + assignee avatar */}
+                      {showFooter && (
+                        <div style={boardStyles.cardFooter}>
+                          {project ? (
+                            <span style={{
+                              ...boardStyles.cardTag,
+                              color: project.color || T.accentAvatar,
+                              backgroundColor: (project.color || T.accentAvatar) + '1F',
+                            }}>
+                              {project.title}
+                            </span>
+                          ) : <span />}
+                          {assignee && (
+                            <span style={{ ...boardStyles.cardAvatar, backgroundColor: avatarColor }}>
+                              {initialsOf(assignee.name)}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -253,107 +298,134 @@ function KanbanBoard({
 const boardStyles: Record<string, React.CSSProperties> = {
   board: {
     display: 'flex',
-    gap: 12,
+    gap: 10,
     flex: 1,
     padding: '16px 20px 20px',
     overflow: 'auto',
     minHeight: 0,
     outline: 'none',
+    fontFamily: T.font,
   },
   column: {
     flex: '1 1 0%',
-    minWidth: 180,
+    minWidth: 0,
     display: 'flex',
     flexDirection: 'column',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: T.bgTertiary,
     borderRadius: 12,
     border: 'none',
-    boxShadow: 'inset 0 0 0 1px #f0f0f0',
+    padding: '12px 10px',
     overflow: 'hidden',
     transition: 'box-shadow 0.15s ease, background-color 0.15s ease',
     outline: 'none',
   },
   columnDragOver: {
-    boxShadow: 'inset 0 0 0 2px #007AFF',
-    backgroundColor: 'rgba(0, 122, 255, 0.03)',
+    boxShadow: 'inset 0 0 0 1.5px #E0DCF5',
+    backgroundColor: 'rgba(107,76,230,0.03)',
   },
   columnHeader: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '12px 14px',
-    borderBottom: '1px solid #f0f0f0',
+    gap: 7,
+    padding: '0 4px 8px',
     flexShrink: 0,
   },
   columnTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 600,
-    color: '#1D1D1F',
+    color: T.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: '0.03em',
   },
   columnCount: {
-    fontSize: 12,
+    fontFamily: T.mono,
+    fontSize: 11,
+    color: T.textFaint,
     fontWeight: 500,
-    color: '#8E8E93',
-    backgroundColor: '#fff',
-    padding: '2px 7px',
-    borderRadius: 10,
-    border: '1px solid #f0f0f0',
   },
   cardList: {
     flex: 1,
     overflowY: 'auto',
-    padding: 8,
     display: 'flex',
     flexDirection: 'column',
-    gap: 6,
+    gap: 9,
+    paddingRight: 1,
   },
   emptyColumn: {
     textAlign: 'center',
-    color: '#C7C7CC',
-    fontSize: 13,
-    padding: '24px 8px',
-    fontStyle: 'italic',
+    color: T.textFaintest,
+    fontSize: 12,
+    padding: '16px 8px',
   },
   card: {
     backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: '10px 12px',
-    border: '1px solid #E5E5EA',
+    borderRadius: 10,
+    padding: 12,
+    border: `1px solid #EDEDF3`,
     cursor: 'pointer',
+    boxShadow: T.shadowCard,
     transition: 'box-shadow 0.15s ease, border-color 0.15s ease, opacity 0.15s ease',
     userSelect: 'none',
   },
   cardDragging: {
-    opacity: 0.4,
-    boxShadow: 'none',
+    borderColor: '#E0DCF5',
+    boxShadow: T.shadowCardRaised,
   },
   cardCompleted: {
-    opacity: 0.6,
-    backgroundColor: '#F9FAFB',
+    opacity: 0.7,
+  },
+  cardPriorityRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 8,
+  },
+  cardPriorityLabel: {
+    fontSize: 9.5,
+    fontWeight: 700,
+    letterSpacing: '0.02em',
   },
   cardTitle: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: 500,
-    color: '#1D1D1F',
-    lineHeight: '1.4',
+    color: T.textPrimary,
+    lineHeight: 1.4,
     wordBreak: 'break-word' as const,
   },
   cardTitleCompleted: {
     textDecoration: 'line-through',
-    color: '#8E8E93',
+    color: T.textMuted,
   },
-  cardProject: {
+  cardFooter: {
     display: 'flex',
     alignItems: 'center',
-    gap: 5,
-    marginTop: 6,
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 10,
+    paddingTop: 9,
+    borderTop: `1px solid ${T.borderRow}`,
   },
-  cardProjectName: {
-    fontSize: 11,
-    color: '#8E8E93',
+  cardTag: {
+    fontSize: 10,
+    fontWeight: 600,
+    padding: '2px 7px',
+    borderRadius: 5,
+    maxWidth: '70%',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    whiteSpace: 'nowrap' as const,
+  },
+  cardAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: '50%',
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: 600,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
 };
 

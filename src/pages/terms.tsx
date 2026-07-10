@@ -1,9 +1,13 @@
 /**
  * Terms of Service — public static page, linked from the landing footer.
+ * Restyled to the "Momentum" design system (Geist type, violet accent).
  */
 
 import { Link } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { SiteFooter } from './index'
+import { T } from '../utils/styles'
+import { useIsMobile } from '../hooks'
 
 const SECTIONS: Array<{ title: string; body: string }> = [
   {
@@ -41,28 +45,101 @@ const SECTIONS: Array<{ title: string; body: string }> = [
 ]
 
 export default function Terms() {
+  const isMobile = useIsMobile()
+
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <header className="border-b border-border">
-        <div className="max-w-3xl mx-auto px-6 py-5 flex items-center justify-between">
-          <Link to="/" className="text-lg font-semibold tracking-tight text-foreground">Taskspace</Link>
-          <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Back to home</Link>
-        </div>
+    <div
+      style={{
+        minHeight: '100vh',
+        background: '#fff',
+        color: T.textPrimary,
+        fontFamily: T.font,
+        display: 'flex',
+        flexDirection: 'column',
+        overflowX: 'hidden',
+      }}
+    >
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 32,
+          padding: isMobile ? '16px 20px' : '18px 40px',
+          borderBottom: `1px solid ${T.borderTabs}`,
+        }}
+      >
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              background: T.accentGradient,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+            aria-hidden
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 11l3 3L22 4" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+            </svg>
+          </div>
+          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em', color: T.textPrimary }}>Taskspace</span>
+        </Link>
+        <Link
+          to="/"
+          style={{
+            marginLeft: 'auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 14,
+            fontWeight: 500,
+            color: T.textMuted,
+            textDecoration: 'none',
+            transition: 'color 0.15s ease',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = T.textPrimary)}
+          onMouseLeave={(e) => (e.currentTarget.style.color = T.textMuted)}
+        >
+          <ArrowLeft size={15} strokeWidth={2} />
+          Back to home
+        </Link>
       </header>
-      <main className="flex-1">
-        <div className="max-w-3xl mx-auto px-6 py-14">
-          <h1 className="text-4xl font-bold tracking-[-0.02em] text-foreground">Terms of Service</h1>
-          <p className="mt-3 text-sm text-muted-foreground">Last updated: July 2026</p>
-          <div className="mt-10 space-y-8">
+
+      <main style={{ flex: 1 }}>
+        <div style={{ maxWidth: 720, margin: '0 auto', padding: isMobile ? '40px 20px' : '56px 40px' }}>
+          <h1 style={{ fontSize: isMobile ? 32 : 40, fontWeight: 750, letterSpacing: '-0.03em', color: T.textPrimary, margin: 0 }}>
+            Terms of Service
+          </h1>
+          <p style={{ marginTop: 10, fontSize: 13, color: T.textFaint }}>Last updated: July 2026</p>
+
+          <div style={{ marginTop: 40, display: 'flex', flexDirection: 'column', gap: 30 }}>
             {SECTIONS.map((s) => (
               <section key={s.title}>
-                <h2 className="text-lg font-semibold text-foreground">{s.title}</h2>
-                <p className="mt-2 text-muted-foreground leading-relaxed">{s.body}</p>
+                <h2 style={{ fontSize: 16, fontWeight: 650, color: T.textPrimary, margin: 0 }}>{s.title}</h2>
+                <p style={{ marginTop: 8, fontSize: 14.5, lineHeight: 1.65, color: T.textMuted }}>
+                  {s.body.includes('contact@deep.space') ? (
+                    <>
+                      Questions about these terms:{' '}
+                      <a href="mailto:contact@deep.space" style={{ color: T.accent, textDecoration: 'none', fontWeight: 500 }}>
+                        contact@deep.space
+                      </a>
+                      .
+                    </>
+                  ) : (
+                    s.body
+                  )}
+                </p>
               </section>
             ))}
           </div>
         </div>
       </main>
+
       <SiteFooter />
     </div>
   )

@@ -6,6 +6,7 @@
 
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { Project, Tag, ProjectTreeNode as ProjTreeNode, WidgetUser } from '../constants';
+import { styles } from '../utils/styles';
 
 // Simple inline SVG icons to avoid Lucide DOM issues
 const Icons = {
@@ -105,14 +106,10 @@ interface ToolbarProps {
   onToggleSortDropdown: () => void;
   showFilterDropdown: boolean;
   onToggleFilterDropdown: () => void;
-  // Search
-  searchQuery: string;
-  onSearchChange: (q: string) => void;
   // Display name helper
   getDisplayName: (user: WidgetUser | null) => string;
-  // View mode toggle
-  viewMode?: 'list' | 'board';
-  onViewModeChange?: (mode: 'list' | 'board') => void;
+  // Primary "New task" action — focuses the existing QuickAdd entry point
+  onNewTask?: () => void;
 }
 
 function Toolbar(props: ToolbarProps) {
@@ -129,9 +126,8 @@ function Toolbar(props: ToolbarProps) {
     isAllView, isProjectView, isUserView,
     showSortDropdown, onToggleSortDropdown,
     showFilterDropdown, onToggleFilterDropdown,
-    searchQuery, onSearchChange,
     getDisplayName,
-    viewMode, onViewModeChange,
+    onNewTask,
   } = props;
 
   // State for expanded projects in filter
@@ -230,7 +226,7 @@ function Toolbar(props: ToolbarProps) {
   const kanbanFiltered = selectedKanbanStatuses !== null;
   const usersFiltered = selectedUserIds !== null;
 
-  const showCompletedToggleViews = (isAllView || isProjectView || isUserView) && viewMode !== 'board';
+  const showCompletedToggleViews = isAllView || isProjectView || isUserView;
 
   const hasFilterActive = (showCompletedToggleViews && showCompleted)
     || !showUnassigned
@@ -250,118 +246,17 @@ function Toolbar(props: ToolbarProps) {
   const allUsersSelected = selectedUserIds === null;
 
   return (
-    <div data-toolbar data-testid="toolbar" style={toolbarStyles.toolbar}>
-      {/* Search Input */}
-      <div data-search style={toolbarStyles.searchContainer}>
-        <span style={toolbarStyles.searchIcon}>{Icons.search}</span>
-        <input
-          data-testid="search-input"
-          type="text"
-          placeholder="Search tasks..."
-          value={searchQuery || ''}
-          onChange={(e) => onSearchChange(e.target.value)}
-          style={toolbarStyles.searchInput}
-        />
-        {searchQuery && (
-          <button
-            onClick={() => onSearchChange('')}
-            style={toolbarStyles.searchClear}
-          >
-            {Icons.x}
-          </button>
-        )}
-      </div>
-
-      {/* Sort Button */}
-      <div style={toolbarStyles.dropdownContainer}>
-        <button
-          data-testid="sort-btn"
-          onClick={onToggleSortDropdown}
-          style={hasSortActive ? {
-            ...toolbarStyles.toolbarButton,
-            ...toolbarStyles.toolbarButtonActive,
-          } : toolbarStyles.toolbarButton}
-        >
-          {Icons.sort}
-          <span>Sort</span>
-          {hasSortActive && (
-            <span style={toolbarStyles.activeIndicator} />
-          )}
-        </button>
-
-        {showSortDropdown && (
-          <>
-            <div style={toolbarStyles.backdrop} onClick={onToggleSortDropdown} />
-            <div style={toolbarStyles.sortDropdown}>
-              <div style={toolbarStyles.sortDropdownHeader}>Sort by</div>
-
-              <div style={toolbarStyles.sortDropdownBody}>
-                <SortOption
-                  label="Priority"
-                  isActive={sortBy === 'priority'}
-                  direction={sortBy === 'priority' ? sortDirection : null}
-                  onSelect={() => onSort('priority', sortBy === 'priority' && sortDirection === 'desc' ? 'asc' : 'desc')}
-                  ascending="Low → High"
-                  descending="High → Low"
-                />
-                <SortOption
-                  label="Due Date"
-                  isActive={sortBy === 'dueDate'}
-                  direction={sortBy === 'dueDate' ? sortDirection : null}
-                  onSelect={() => onSort('dueDate', sortBy === 'dueDate' && sortDirection === 'asc' ? 'desc' : 'asc')}
-                  ascending="Earliest First"
-                  descending="Latest First"
-                />
-                <SortOption
-                  label="Created"
-                  isActive={sortBy === 'createdAt'}
-                  direction={sortBy === 'createdAt' ? sortDirection : null}
-                  onSelect={() => onSort('createdAt', sortBy === 'createdAt' && sortDirection === 'desc' ? 'asc' : 'desc')}
-                  ascending="Oldest First"
-                  descending="Newest First"
-                />
-                <SortOption
-                  label="Alphabetical"
-                  isActive={sortBy === 'title'}
-                  direction={sortBy === 'title' ? sortDirection : null}
-                  onSelect={() => onSort('title', sortBy === 'title' && sortDirection === 'asc' ? 'desc' : 'asc')}
-                  ascending="A → Z"
-                  descending="Z → A"
-                />
-              </div>
-
-              {hasSortActive && (
-                <div style={toolbarStyles.sortDropdownFooter}>
-                  <button
-                    onClick={() => onSort(null, null)}
-                    style={toolbarStyles.clearSortButton}
-                  >
-                    {Icons.x}
-                    <span>Clear Sort</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Filter Button */}
+    <div data-toolbar data-testid="toolbar" style={{ ...styles.toolbar, borderBottom: 'none' }}>
+      {/* Filter Button (first, matching Momentum toolbar order) */}
       <div style={toolbarStyles.dropdownContainer}>
         <button
           ref={filterButtonRef}
           data-testid="filter-btn"
           onClick={onToggleFilterDropdown}
-          style={hasFilterActive ? {
-            ...toolbarStyles.toolbarButton,
-            ...toolbarStyles.toolbarButtonActive,
-          } : toolbarStyles.toolbarButton}
+          style={hasFilterActive ? { ...styles.toolbarBtn, ...styles.toolbarBtnActive } : styles.toolbarBtn}
         >
           {Icons.filter}
           <span>Filter</span>
-          {hasFilterActive && (
-            <span style={toolbarStyles.activeIndicator} />
-          )}
         </button>
 
         {showFilterDropdown && filterPosition && (
@@ -497,32 +392,86 @@ function Toolbar(props: ToolbarProps) {
         )}
       </div>
 
-      {/* View Mode Toggle (List / Board) */}
-      {viewMode && onViewModeChange && (
-        <div style={toolbarStyles.viewToggle}>
-          <button
-            data-testid="view-mode-list"
-            onClick={() => onViewModeChange('list')}
-            title="List view"
-            style={{
-              ...toolbarStyles.viewToggleBtn,
-              ...(viewMode === 'list' ? toolbarStyles.viewToggleBtnActive : {}),
-            }}
-          >
-            {Icons.listView}
-          </button>
-          <button
-            data-testid="view-mode-board"
-            onClick={() => onViewModeChange('board')}
-            title="Board view"
-            style={{
-              ...toolbarStyles.viewToggleBtn,
-              ...(viewMode === 'board' ? toolbarStyles.viewToggleBtnActive : {}),
-            }}
-          >
-            {Icons.boardView}
-          </button>
-        </div>
+      {/* Sort Button */}
+      <div style={toolbarStyles.dropdownContainer}>
+        <button
+          data-testid="sort-btn"
+          onClick={onToggleSortDropdown}
+          style={hasSortActive ? { ...styles.toolbarBtn, ...styles.toolbarBtnActive } : styles.toolbarBtn}
+        >
+          {Icons.sort}
+          <span>Sort</span>
+        </button>
+
+        {showSortDropdown && (
+          <>
+            <div style={toolbarStyles.backdrop} onClick={onToggleSortDropdown} />
+            <div style={toolbarStyles.sortDropdown}>
+              <div style={toolbarStyles.sortDropdownHeader}>Sort by</div>
+
+              <div style={toolbarStyles.sortDropdownBody}>
+                <SortOption
+                  label="Priority"
+                  isActive={sortBy === 'priority'}
+                  direction={sortBy === 'priority' ? sortDirection : null}
+                  onSelect={() => onSort('priority', sortBy === 'priority' && sortDirection === 'desc' ? 'asc' : 'desc')}
+                  ascending="Low → High"
+                  descending="High → Low"
+                />
+                <SortOption
+                  label="Due Date"
+                  isActive={sortBy === 'dueDate'}
+                  direction={sortBy === 'dueDate' ? sortDirection : null}
+                  onSelect={() => onSort('dueDate', sortBy === 'dueDate' && sortDirection === 'asc' ? 'desc' : 'asc')}
+                  ascending="Earliest First"
+                  descending="Latest First"
+                />
+                <SortOption
+                  label="Created"
+                  isActive={sortBy === 'createdAt'}
+                  direction={sortBy === 'createdAt' ? sortDirection : null}
+                  onSelect={() => onSort('createdAt', sortBy === 'createdAt' && sortDirection === 'desc' ? 'asc' : 'desc')}
+                  ascending="Oldest First"
+                  descending="Newest First"
+                />
+                <SortOption
+                  label="Alphabetical"
+                  isActive={sortBy === 'title'}
+                  direction={sortBy === 'title' ? sortDirection : null}
+                  onSelect={() => onSort('title', sortBy === 'title' && sortDirection === 'asc' ? 'desc' : 'asc')}
+                  ascending="A → Z"
+                  descending="Z → A"
+                />
+              </div>
+
+              {hasSortActive && (
+                <div style={toolbarStyles.sortDropdownFooter}>
+                  <button
+                    onClick={() => onSort(null, null)}
+                    style={toolbarStyles.clearSortButton}
+                  >
+                    {Icons.x}
+                    <span>Clear Sort</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Primary "New task" button — triggers the existing QuickAdd entry point */}
+      {onNewTask && (
+        <button
+          data-testid="new-task-btn"
+          onClick={onNewTask}
+          style={{ ...styles.primaryBtn, marginLeft: 'auto' }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          New task
+        </button>
       )}
     </div>
   );

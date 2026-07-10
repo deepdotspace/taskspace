@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { Task } from '../constants';
+import { styles } from '../utils/styles';
 
 interface BulkActionBarProps {
   selectedCount: number;
@@ -33,9 +34,9 @@ function BulkActionBar({
   const allCompleted = selectedTasks?.length > 0 && selectedTasks.every(t => t.completed);
 
   return (
-    <div data-bulk-bar style={barStyles.container}>
+    <div data-bulk-bar style={{ ...styles.bulkBar, justifyContent: 'space-between', gap: '16px' }}>
       <div style={barStyles.leftSection}>
-        <span style={barStyles.selectionCount}>
+        <span style={styles.bulkBarCount}>
           {selectedCount} task{selectedCount !== 1 ? 's' : ''} selected
         </span>
         <button onClick={onClearSelection} style={barStyles.clearButton}>
@@ -94,35 +95,19 @@ function BulkActionBar({
 }
 
 const barStyles: Record<string, React.CSSProperties> = {
-  container: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '10px 24px',
-    backgroundColor: '#007AFF',
-    borderBottom: '1px solid rgba(255,255,255,0.2)',
-    color: '#fff',
-    gap: '16px',
-  },
   leftSection: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
   },
-  selectionCount: {
-    fontSize: '14px',
-    fontWeight: 600,
-  },
   clearButton: {
+    ...styles.bulkClearBtn,
+    marginLeft: 0,
     padding: '4px 10px',
-    fontSize: '12px',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: '6px',
     fontWeight: 500,
     color: '#fff',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif',
   },
   actions: {
     display: 'flex',
@@ -130,27 +115,15 @@ const barStyles: Record<string, React.CSSProperties> = {
     gap: '8px',
   },
   actionButton: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '6px 12px',
-    fontSize: '13px',
-    fontWeight: 500,
-    color: '#fff',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    border: '1px solid rgba(255,255,255,0.3)',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    transition: 'background-color 0.15s ease',
-    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif',
+    ...styles.bulkBtn,
   },
   deleteButton: {
-    backgroundColor: 'rgba(255,59,48,0.3)',
-    border: '1px solid rgba(255,59,48,0.5)',
+    ...styles.bulkBtnDanger,
   },
   restoreButton: {
-    backgroundColor: 'rgba(52,199,89,0.3)',
+    backgroundColor: 'rgba(52,199,89,0.25)',
     border: '1px solid rgba(52,199,89,0.5)',
+    color: '#DDF6E7',
   },
 };
 

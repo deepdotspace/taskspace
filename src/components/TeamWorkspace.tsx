@@ -232,7 +232,7 @@ export default function TeamWorkspace({
   const [currentView, setCurrentView] = useState<ViewState>({ type: VIEWS.ALL });
   const [showNewProjectInput, setShowNewProjectInput] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
-  const [newProjectColor, setNewProjectColor] = useState('#007AFF');
+  const [newProjectColor, setNewProjectColor] = useState('#7C5CFC');
   const [newProjectParentId, setNewProjectParentId] = useState<string | null>(null);
   const [deleteProjectConfirm, setDeleteProjectConfirm] = useState<{
     id: string; title: string; taskCount: number; childCount: number;
@@ -241,7 +241,7 @@ export default function TeamWorkspace({
     id: string; title: string; color: string; totalTaskCount?: number; childCount?: number;
   } | null>(null);
   const [editProjectTitle, setEditProjectTitle] = useState('');
-  const [editProjectColor, setEditProjectColor] = useState('#007AFF');
+  const [editProjectColor, setEditProjectColor] = useState('#7C5CFC');
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
     isOpen: boolean; type: 'delete' | 'permanentDelete' | null;
     count: number; taskIds: string[]; taskTitle: string | null;
@@ -262,6 +262,8 @@ export default function TeamWorkspace({
   const [showReadOnlyBanner, setShowReadOnlyBanner] = useState(true);
   const [isDetailResizeHovered, setIsDetailResizeHovered] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
+  const [quickAddFocus, setQuickAddFocus] = useState(0);
+  const focusQuickAdd = useCallback(() => setQuickAddFocus(n => n + 1), []);
 
   const clearSort = useCallback(() => { setSortBy(null); setSortDirection('asc'); }, []);
 
@@ -309,12 +311,12 @@ export default function TeamWorkspace({
   );
 
   const sidebarResize = useMouseDragResize({
-    initialWidth: 260, minWidth: 180, maxWidth: 400,
+    initialWidth: 236, minWidth: 180, maxWidth: 400,
     getNextWidth: (e: MouseEvent) => e.clientX,
   });
 
   const detailResize = useMouseDragResize({
-    initialWidth: 340,
+    initialWidth: 326,
     getNextWidth: (e: MouseEvent) => window.innerWidth - e.clientX,
     getMinWidth: () => window.innerWidth * 0.2,
     getMaxWidth: () => window.innerWidth * 0.5,
@@ -401,28 +403,28 @@ export default function TeamWorkspace({
     setNewProjectParentId(parentId); setNewProjectName('');
     if (parentId) {
       const p = projects?.find(p => p.id === parentId);
-      setNewProjectColor(p?.color || '#007AFF');
-    } else { setNewProjectColor('#007AFF'); }
+      setNewProjectColor(p?.color || '#7C5CFC');
+    } else { setNewProjectColor('#7C5CFC'); }
     setShowNewProjectInput(true);
   }, [projects]);
 
   const handleSaveNewProject = useCallback(async () => {
     if (newProjectName.trim()) {
       const project = await addProject({ title: newProjectName.trim(), parentId: newProjectParentId, color: newProjectColor });
-      setNewProjectName(''); setNewProjectColor('#007AFF');
+      setNewProjectName(''); setNewProjectColor('#7C5CFC');
       setShowNewProjectInput(false); setNewProjectParentId(null);
       if (project) setCurrentView({ type: VIEWS.PROJECT, id: project.id });
     }
   }, [newProjectName, newProjectParentId, newProjectColor, addProject]);
 
   const handleEditProject = useCallback((info: { id: string; title: string; color: string }) => {
-    setEditProjectModal(info); setEditProjectTitle(info.title || ''); setEditProjectColor(info.color || '#007AFF');
+    setEditProjectModal(info); setEditProjectTitle(info.title || ''); setEditProjectColor(info.color || '#7C5CFC');
   }, []);
 
   const handleSaveEditProject = useCallback(() => {
     if (!editProjectModal || !editProjectTitle.trim()) return;
     updateProject(editProjectModal.id, { title: editProjectTitle.trim(), color: editProjectColor });
-    setEditProjectModal(null); setEditProjectTitle(''); setEditProjectColor('#007AFF');
+    setEditProjectModal(null); setEditProjectTitle(''); setEditProjectColor('#7C5CFC');
   }, [editProjectModal, editProjectTitle, editProjectColor, updateProject]);
 
   const handleDeleteFromEdit = useCallback(() => {
@@ -560,6 +562,7 @@ export default function TeamWorkspace({
         onTaskDragEnd={isReadOnly ? undefined : dragHandlers.onDragEnd}
         allUsers={teamUsers} currentUser={currentUser}
         onManageUsers={() => setShowTeamSettings(true)}
+        searchQuery={searchQuery} onSearchChange={setSearchQuery}
         width={sidebarResize.width} getDisplayName={getDisplayName} isReadOnly={isReadOnly}
         isMobile={isMobile} isMobileOpen={mobileSidebarOpen} onMobileClose={handleMobileSidebarClose}
         teamSelector={
@@ -589,7 +592,8 @@ export default function TeamWorkspace({
 
             <ViewHeader view={currentView} project={currentProject} user={currentUserForView}
               taskCount={displayedTasks.length} taskCountData={displayedTaskCounts}
-              getDisplayName={getDisplayName} onMenuClick={handleMobileSidebarOpen} />
+              getDisplayName={getDisplayName} onMenuClick={handleMobileSidebarOpen}
+              viewMode={viewMode} onViewModeChange={handleViewModeChange} />
 
             <Toolbar sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}
               showCompleted={showCompleted} onToggleShowCompleted={handleToggleShowCompleted}
@@ -606,8 +610,8 @@ export default function TeamWorkspace({
               isUserView={currentView.type === VIEWS.USER}
               showSortDropdown={showSortDropdown} onToggleSortDropdown={handleToggleSortDropdown}
               showFilterDropdown={showFilterDropdown} onToggleFilterDropdown={handleToggleFilterDropdown}
-              searchQuery={searchQuery} onSearchChange={setSearchQuery} getDisplayName={getDisplayName}
-              viewMode={viewMode} onViewModeChange={handleViewModeChange} />
+              getDisplayName={getDisplayName}
+              onNewTask={(isReadOnly || currentView.type === VIEWS.LOGBOOK || currentView.type === VIEWS.TRASH) ? undefined : focusQuickAdd} />
 
             {viewMode === 'list' && (<>
               {!isReadOnly && selectedTaskIds.length > 1 && (
@@ -627,9 +631,12 @@ export default function TeamWorkspace({
                 emptyMessage={getEmptyMessage()} groupByDate={currentView.type === VIEWS.UPCOMING}
                 draggedItem={draggedItem || null} dragOverItem={dragOverItem || null}
                 dragHandlers={isReadOnly ? {} : dragHandlers}
-                getDisplayName={getDisplayName} allUsers={teamUsers} isReadOnly={isReadOnly} />
+                getDisplayName={getDisplayName} allUsers={teamUsers} isReadOnly={isReadOnly}
+                isLogbook={currentView.type === VIEWS.LOGBOOK}
+                onNewTask={(isReadOnly || currentView.type === VIEWS.LOGBOOK || currentView.type === VIEWS.TRASH) ? undefined : focusQuickAdd}
+                onOpenBoard={() => handleViewModeChange('board')} />
               {!isReadOnly && currentView.type !== VIEWS.LOGBOOK && currentView.type !== VIEWS.TRASH && (
-                <QuickAdd onAdd={handleQuickAdd} placeholder={getPlaceholder()} />
+                <QuickAdd onAdd={handleQuickAdd} placeholder={getPlaceholder()} focusToken={quickAddFocus} />
               )}
             </>)}
 
@@ -664,7 +671,7 @@ export default function TeamWorkspace({
       {/* AI Chat panel */}
       {showChat && (
         <>
-          <div style={{ width: 1, background: '#E5E5EA', flexShrink: 0 }} />
+          <div style={{ width: 1, background: '#ECEDF3', flexShrink: 0 }} />
           <div style={{ width: isMobile ? '100vw' : 420, flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden', position: 'relative' }}>
             <ChatPanel
               chatId={activeChatId}
@@ -672,15 +679,15 @@ export default function TeamWorkspace({
               onChatCreated={setActiveChatId}
               disabled={creatingChat}
               header={
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 8px', height: 44, borderBottom: '1px solid #E5E5EA', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 8px', height: 44, borderBottom: '1px solid #ECEDF3', flexShrink: 0 }}>
                   <span style={{ flex: 1, fontWeight: 600, fontSize: 14, paddingLeft: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>AI Assistant</span>
-                  <button onClick={handleNewChat} title="New chat" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, color: '#8E8E93' }}>
+                  <button onClick={handleNewChat} title="New chat" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, color: '#9CA0B8' }}>
                     <Icon name="plus" size={16} />
                   </button>
-                  <button onClick={() => setHistoryOpen(v => !v)} title="Chat history" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, color: historyOpen ? '#007AFF' : '#8E8E93' }}>
+                  <button onClick={() => setHistoryOpen(v => !v)} title="Chat history" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, color: historyOpen ? '#6B4CE6' : '#9CA0B8' }}>
                     <Icon name="clock" size={16} />
                   </button>
-                  <button onClick={() => { setShowChat(false); setHistoryOpen(false); }} title="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, color: '#8E8E93' }}>
+                  <button onClick={() => { setShowChat(false); setHistoryOpen(false); }} title="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, color: '#9CA0B8' }}>
                     <Icon name="x" size={16} />
                   </button>
                 </div>
@@ -694,20 +701,20 @@ export default function TeamWorkspace({
             {historyOpen && (
               <div style={{ position: 'absolute', inset: 0, zIndex: 10, background: 'rgba(0,0,0,0.3)', display: 'flex', justifyContent: 'flex-end' }} onClick={() => setHistoryOpen(false)}>
                 <div style={{ width: '100%', maxWidth: 320, background: '#fff', display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 16px rgba(0,0,0,0.1)' }} onClick={e => e.stopPropagation()}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #E5E5EA' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #ECEDF3' }}>
                     <span style={{ fontWeight: 600, fontSize: 13 }}>History</span>
-                    <button onClick={() => setHistoryOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8E8E93' }}><Icon name="x" size={14} /></button>
+                    <button onClick={() => setHistoryOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA0B8' }}><Icon name="x" size={14} /></button>
                   </div>
                   <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {chats.length === 0 ? (
-                      <span style={{ fontSize: 12, color: '#8E8E93', padding: '8px 4px' }}>No previous conversations.</span>
+                      <span style={{ fontSize: 12, color: '#9CA0B8', padding: '8px 4px' }}>No previous conversations.</span>
                     ) : chats.map((chat) => (
-                      <div key={chat.recordId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, background: chat.recordId === activeChatId ? '#F2F2F7' : 'transparent', cursor: 'pointer' }}
+                      <div key={chat.recordId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, background: chat.recordId === activeChatId ? '#F0ECFE' : 'transparent', cursor: 'pointer' }}
                         onClick={() => handleSelectChat(chat.recordId)}>
-                        <span style={{ flex: 1, fontSize: 13, fontWeight: chat.recordId === activeChatId ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#1D1D1F' }}>
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: chat.recordId === activeChatId ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#1B1C2E' }}>
                           {(chat.data.title ?? '').trim() || 'Untitled'}
                         </span>
-                        <button onClick={e => { e.stopPropagation(); void handleDeleteChat(chat.recordId); }} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8E8E93', opacity: 0.6, padding: 2 }}><Icon name="x" size={12} /></button>
+                        <button onClick={e => { e.stopPropagation(); void handleDeleteChat(chat.recordId); }} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA0B8', opacity: 0.6, padding: 2 }}><Icon name="x" size={12} /></button>
                       </div>
                     ))}
                   </div>
@@ -737,7 +744,7 @@ export default function TeamWorkspace({
           <div data-modal-content style={styles.modalContent} onClick={e => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <h3 style={styles.modalTitle}>New Project</h3>
-              <button onClick={() => setShowNewProjectInput(false)} style={styles.modalClose}><Icon name="x" size={18} color="#8E8E93" /></button>
+              <button onClick={() => setShowNewProjectInput(false)} style={styles.modalClose}><Icon name="x" size={18} color="#9CA0B8" /></button>
             </div>
             {newProjectParentId && <div style={styles.modalSubtitle}>Inside: {projects?.find(p => p.id === newProjectParentId)?.title || 'project'}</div>}
             <input type="text" value={newProjectName} onChange={e => setNewProjectName(e.target.value)}
@@ -760,7 +767,7 @@ export default function TeamWorkspace({
           <div data-modal-content style={styles.modalContent} onClick={e => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <h3 style={styles.modalTitle}>Edit Project</h3>
-              <button onClick={() => setEditProjectModal(null)} style={styles.modalClose}><Icon name="x" size={18} color="#8E8E93" /></button>
+              <button onClick={() => setEditProjectModal(null)} style={styles.modalClose}><Icon name="x" size={18} color="#9CA0B8" /></button>
             </div>
             <input type="text" value={editProjectTitle} onChange={e => setEditProjectTitle(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && editProjectTitle.trim()) handleSaveEditProject(); if (e.key === 'Escape') setEditProjectModal(null); }}
@@ -785,7 +792,7 @@ export default function TeamWorkspace({
           <div data-modal-content style={styles.modalContent} onClick={e => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <h3 style={styles.modalTitle}>Delete Project</h3>
-              <button onClick={() => setDeleteProjectConfirm(null)} style={styles.modalClose}><Icon name="x" size={18} color="#8E8E93" /></button>
+              <button onClick={() => setDeleteProjectConfirm(null)} style={styles.modalClose}><Icon name="x" size={18} color="#9CA0B8" /></button>
             </div>
             <div style={styles.deleteModalBody}>
               <div style={styles.deleteWarningIcon}><Icon name="alert-triangle" size={32} color="#FF3B30" /></div>
@@ -820,7 +827,7 @@ export default function TeamWorkspace({
             width: 48,
             height: 48,
             borderRadius: '50%',
-            background: '#007AFF',
+            background: 'linear-gradient(150deg,#8B6CFF,#6B4CE6)',
             color: '#fff',
             border: 'none',
             cursor: 'pointer',
@@ -828,7 +835,7 @@ export default function TeamWorkspace({
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: 22,
-            boxShadow: '0 2px 12px rgba(0,122,255,0.4)',
+            boxShadow: '0 6px 16px -4px rgba(107,76,230,0.5)',
             zIndex: 200,
           }}
         >
@@ -841,7 +848,7 @@ export default function TeamWorkspace({
         message={deleteConfirmModal.type === 'permanentDelete' ? (
           deleteConfirmModal.taskTitle ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <p style={{ margin: 0, fontSize: '15px', color: '#1D1D1F' }}>Permanently delete "<strong>{deleteConfirmModal.taskTitle}</strong>"?</p>
+              <p style={{ margin: 0, fontSize: '15px', color: '#1B1C2E' }}>Permanently delete "<strong>{deleteConfirmModal.taskTitle}</strong>"?</p>
               <p style={{ margin: 0, fontSize: '14px', color: '#6B7280' }}>This action cannot be undone.</p>
             </div>
           ) : `Are you sure you want to permanently delete ${deleteConfirmModal.count} task${deleteConfirmModal.count > 1 ? 's' : ''}? This action cannot be undone.`

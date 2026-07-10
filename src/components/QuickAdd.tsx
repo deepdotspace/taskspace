@@ -5,14 +5,17 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Icon } from '../utils/icons';
+import { styles, T } from '../utils/styles';
 
 interface QuickAddProps {
   onAdd: (data: { title: string }) => void;
   placeholder?: string;
   autoFocus?: boolean;
+  /** Increment to programmatically focus the input (e.g. from a "New task" button). */
+  focusToken?: number;
 }
 
-function QuickAdd({ onAdd, placeholder, autoFocus }: QuickAddProps) {
+function QuickAdd({ onAdd, placeholder, autoFocus, focusToken }: QuickAddProps) {
   const [value, setValue] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -22,6 +25,12 @@ function QuickAdd({ onAdd, placeholder, autoFocus }: QuickAddProps) {
       inputRef.current.focus();
     }
   }, [autoFocus]);
+
+  // Programmatic focus when focusToken changes
+  useEffect(() => {
+    if (focusToken === undefined) return;
+    inputRef.current?.focus();
+  }, [focusToken]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,99 +99,63 @@ function QuickAdd({ onAdd, placeholder, autoFocus }: QuickAddProps) {
   const hasValue = value.trim().length > 0;
 
   return (
-    <form onSubmit={handleSubmit} data-quick-add style={localStyles.container}>
-      <div style={localStyles.inputRow}>
-        <div style={{
-          ...localStyles.inputWrapper,
-          ...(isFocused ? localStyles.inputWrapperFocused : {})
-        }}>
-          <Icon name="plus" size={18} color={isFocused ? '#6366f1' : '#9ca3af'} />
-          <input
-            ref={inputRef}
-            data-testid="quick-add-input"
-            type="text"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            placeholder={placeholder || 'New To-Do'}
-            style={localStyles.input}
-          />
-        </div>
-        <button
-          type="submit"
-          data-testid="quick-add-submit"
-          style={{
-            ...localStyles.addButton,
-            ...(hasValue ? localStyles.addButtonActive : {})
-          }}
-          disabled={!hasValue}
-        >
-          <Icon name="circle-plus" size={20} color="currentColor" />
-        </button>
-      </div>
+    <form
+      onSubmit={handleSubmit}
+      data-quick-add
+      style={{
+        ...styles.quickAdd,
+        boxShadow: isFocused ? `inset 0 0 0 1px ${T.accent}22` : 'none',
+      }}
+    >
+      <Icon name="plus" size={17} color={isFocused ? T.accent : T.textFaint} />
+      <input
+        ref={inputRef}
+        data-testid="quick-add-input"
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
+        placeholder={placeholder || 'New To-Do'}
+        style={styles.quickAddInput}
+      />
+      <button
+        type="submit"
+        data-testid="quick-add-submit"
+        style={{
+          ...localStyles.addButton,
+          ...(hasValue ? localStyles.addButtonActive : {}),
+        }}
+        disabled={!hasValue}
+      >
+        <Icon name="circle-plus" size={20} color="currentColor" />
+      </button>
     </form>
   );
 }
 
 const localStyles: Record<string, React.CSSProperties> = {
-  container: {
-    padding: '16px 20px 20px',
-    borderTop: '1px solid #f0f0f0',
-    backgroundColor: '#ffffff'
-  },
-  inputRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px'
-  },
-  inputWrapper: {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '12px 16px',
-    backgroundColor: '#ffffff',
-    borderRadius: '12px',
-    border: '1px solid #f0f0f0',
-    transition: 'all 0.2s ease',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-  },
-  inputWrapperFocused: {
-    border: '1px solid #6366f1',
-    boxShadow: '0 0 0 3px rgba(99,102,241,0.12)'
-  },
-  input: {
-    flex: 1,
-    border: 'none',
-    background: 'transparent',
-    fontSize: '14px',
-    color: '#1f2937',
-    outline: 'none',
-    fontFamily: 'inherit'
-  },
   addButton: {
-    width: '44px',
-    height: '44px',
-    borderRadius: '12px',
+    width: '30px',
+    height: '30px',
+    borderRadius: '8px',
     border: 'none',
-    backgroundColor: '#f5f5f5',
-    color: '#9ca3af',
+    backgroundColor: 'transparent',
+    color: T.textFaintest,
     cursor: 'not-allowed',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'all 0.2s ease',
-    flexShrink: 0
+    transition: 'all 0.15s ease',
+    flexShrink: 0,
+    padding: 0,
   },
   addButtonActive: {
-    backgroundColor: '#6366f1',
-    color: '#ffffff',
+    color: T.accent,
     cursor: 'pointer',
-    boxShadow: '0 4px 20px rgba(99,102,241,0.25)'
-  }
+  },
 };
 
 export default React.memo(QuickAdd);

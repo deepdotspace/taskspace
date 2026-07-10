@@ -49,10 +49,18 @@ export const PRIORITY_LABELS: Record<string, string> = {
 };
 
 export const PRIORITY_COLORS: Record<string, string> = {
-  none: '#8E8E93',
-  low: '#34C759',
-  medium: '#FF9500',
-  high: '#FF3B30',
+  none: '#98A0B3',
+  low: '#22C08B',
+  medium: '#FF9F2E',
+  high: '#FF4D4F',
+};
+
+/** Soft pill backgrounds per priority (Momentum design). */
+export const PRIORITY_SOFT_COLORS: Record<string, string> = {
+  none: '#F1F1F6',
+  low: '#E4F7EF',
+  medium: '#FFF3E0',
+  high: '#FFEEEE',
 };
 
 // ── Kanban Status ───────────────────────────────────
@@ -73,21 +81,30 @@ export const KANBAN_STATUS_LABELS: Record<string, string> = {
 };
 
 export const KANBAN_STATUS_COLORS: Record<string, string> = {
-  backlog: '#8E8E93',
-  ready: '#007AFF',
-  in_progress: '#FF9500',
-  review: '#AF52DE',
-  done: '#34C759',
+  backlog: '#98A0B3',
+  ready: '#4C6FFF',
+  in_progress: '#6B4CE6',
+  review: '#A855F7',
+  done: '#22C08B',
+};
+
+/** Soft pill backgrounds per status (Momentum design). */
+export const KANBAN_STATUS_SOFT_COLORS: Record<string, string> = {
+  backlog: '#F1F1F6',
+  ready: '#EAF0FF',
+  in_progress: '#F0ECFE',
+  review: '#F6ECFE',
+  done: '#E4F7EF',
 };
 
 export const ALL_KANBAN_STATUS_IDS = ['backlog', 'ready', 'in_progress', 'review', 'done'];
 
 export const KANBAN_STATUS_CONFIG = [
-  { id: 'backlog', label: 'Backlog', color: '#9ca3af' },
-  { id: 'ready', label: 'Ready', color: '#6366f1' },
-  { id: 'in_progress', label: 'In Progress', color: '#f59e0b' },
-  { id: 'review', label: 'Review', color: '#8b5cf6' },
-  { id: 'done', label: 'Done', color: '#22c55e' },
+  { id: 'backlog', label: 'Backlog', color: '#98A0B3' },
+  { id: 'ready', label: 'Ready', color: '#4C6FFF' },
+  { id: 'in_progress', label: 'In Progress', color: '#6B4CE6' },
+  { id: 'review', label: 'Review', color: '#A855F7' },
+  { id: 'done', label: 'Done', color: '#22C08B' },
 ];
 
 // ── Default Task ────────────────────────────────────
@@ -115,7 +132,7 @@ export const DEFAULT_PROJECT: ProjectRecord = {
   TeamId: '',
   Title: 'New Project',
   Notes: '',
-  Color: '#007AFF',
+  Color: '#7C5CFC',
   ParentId: null,
   Order: 0,
   CreatedAt: 0,
@@ -123,15 +140,15 @@ export const DEFAULT_PROJECT: ProjectRecord = {
 
 // ── Tag Colors ──────────────────────────────────────
 export const TAG_COLORS = [
-  '#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#00C7BE',
-  '#007AFF', '#5856D6', '#AF52DE', '#FF2D55', '#A2845E',
-  '#8E8E93', '#636366',
+  '#FF4D4F', '#FF9F2E', '#FFC933', '#22C08B', '#00C7BE',
+  '#4C6FFF', '#6B4CE6', '#A855F7', '#FF2D75', '#A2845E',
+  '#98A0B3', '#3A3C52',
 ];
 
 export const DEFAULT_TAG: TagRecord = {
   TeamId: '',
   Name: '',
-  Color: '#007AFF',
+  Color: '#6B4CE6',
   CreatedAt: 0,
 };
 
@@ -220,8 +237,8 @@ export interface WidgetUser {
 // ── Deterministic user color ────────────────────────
 
 export const USER_COLOR_PALETTE = [
-  '#007AFF', '#FF3B30', '#34C759', '#FF9500', '#AF52DE',
-  '#5856D6', '#FF2D55', '#00C7BE', '#A2845E', '#5AC8FA',
+  '#7C5CFC', '#FF4D4F', '#22C08B', '#FF9F2E', '#A855F7',
+  '#4C6FFF', '#FF2D75', '#00C7BE', '#A2845E', '#38B6E0',
 ];
 
 export function getUserColor(userId: string): string {

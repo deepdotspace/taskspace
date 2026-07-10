@@ -239,14 +239,12 @@ export default function HomePage() {
       </RecordScope>
 
       {teamOnboardingMode && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 500, background: '#F5F5F7' }}>
-          <TeamOnboarding
-            mode={teamOnboardingMode}
-            onCreate={handleCreateTeam}
-            onJoin={handleJoinTeam}
-            onClose={() => setTeamOnboardingMode(null)}
-          />
-        </div>
+        <TeamOnboarding
+          mode={teamOnboardingMode}
+          onCreate={handleCreateTeam}
+          onJoin={handleJoinTeam}
+          onClose={() => setTeamOnboardingMode(null)}
+        />
       )}
     </>
   );
