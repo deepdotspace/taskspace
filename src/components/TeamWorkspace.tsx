@@ -119,10 +119,29 @@ export default function TeamWorkspace({
       })),
     [activeTeamMembers, activeTeamEmails]
   );
-  const teamUsers = useMemo(() => [
-    ...allUsers.filter(u => teamUserIds.has(u.id)),
-    ...pendingInviteUsers,
-  ], [allUsers, teamUserIds, pendingInviteUsers]);
+  // Team users, enriched: the user directory has no profile for some accounts
+  // (name "Anonymous", empty email) — fall back to their membership record's
+  // Email so teammates render as "bob@…" instead of an anonymous ghost.
+  const teamUsers = useMemo(() => {
+    const memberByUserId = new Map(
+      activeTeamMembers.filter(m => m.userId).map(m => [m.userId, m])
+    );
+    const enrich = (u: WidgetUser): WidgetUser => {
+      const m = memberByUserId.get(u.id);
+      if (!m?.email) return u;
+      const nameless = !u.name || u.name === 'Anonymous' || u.name === 'Unknown';
+      if (!nameless && u.email) return u;
+      return {
+        ...u,
+        name: nameless ? (m.email.split('@')[0] || m.email) : u.name,
+        email: u.email || m.email,
+      };
+    };
+    return [
+      ...allUsers.filter(u => teamUserIds.has(u.id)).map(enrich),
+      ...pendingInviteUsers,
+    ];
+  }, [allUsers, teamUserIds, pendingInviteUsers, activeTeamMembers]);
 
   const myActiveMembership = useMemo(() =>
     activeTeamMembers.find(m => m.userId === currentUser.id) || null,
@@ -154,21 +173,29 @@ export default function TeamWorkspace({
       .forEach(t => updateTask(t.id, { assignedUser: null, assignedBy: null }));
   }, [updateTask]);
 
-  // Auto-claim invite — needs both activeTeamMembers (app scope, prop)
-  // and updateTask (team scope, local).
+  // Migrate tasks assigned to me-as-a-pending-invite. Tasks assigned before I
+  // joined point at the invite's team_members RECORD id (not my user id) —
+  // and claimed invites keep that record id (claimMyInvites/joinTeam update
+  // them in place). So: any task assigned to one of MY member-record ids gets
+  // reassigned to my real user identity. Also claims a still-pending invite
+  // matching my email (legacy path) via the claimInvite action.
   useEffect(() => {
     if (!currentUser || !activeTeamId) return;
-    const myInvite = activeTeamMembers.find(
-      m => m.status === 'invited' && m.email === currentUser.email
+    const myEmail = currentUser.email;
+    const mine = activeTeamMembers.filter(m =>
+      m.userId === currentUser.id ||
+      (m.status === 'invited' && !!myEmail && m.email === myEmail)
     );
-    if (!myInvite) return;
+    if (mine.length === 0) return;
+    const markerIds = new Set(mine.map(m => m.id));
     (tasksRef.current || [])
-      .filter(t => t.assignedUser?.id === myInvite.id)
+      .filter(t => t.assignedUser && markerIds.has(t.assignedUser.id))
       .forEach(t => updateTask(t.id, {
         assignedUser: { id: currentUser.id, name: currentUser.name, email: currentUser.email, color: currentUser.color },
       }));
-    callAction('claimInvite', { inviteId: myInvite.id, teamId: activeTeamId }).catch(() => {});
-  }, [activeTeamMembers, currentUser, activeTeamId, updateTask]);
+    const pending = mine.find(m => m.status === 'invited');
+    if (pending) callAction('claimInvite', { inviteId: pending.id, teamId: activeTeamId }).catch(() => {});
+  }, [activeTeamMembers, currentUser, activeTeamId, tasks, updateTask]);
 
   // ── UI state ─────────────────────────────────────────────────────────────
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);

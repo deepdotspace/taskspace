@@ -70,6 +70,32 @@ export default function HomePage() {
 
   const { records: teamRecords, status: teamStatus } = useQuery<TeamRecord>('teams');
 
+  // Auto-claim pending invites for my verified email (server action) — this is
+  // what lets an invited user land directly in the team without pasting an ID.
+  // When a claim changes membership, reload once: room permission caches are
+  // per-connection, so without a reconnect the new team's data reads as empty.
+  // Runs on every load (a user can be invited mid-session and claim on their
+  // next reload); the short timestamp guard only prevents a reload loop if the
+  // server ever misbehaves — a successful claim leaves nothing to re-claim.
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    const last = Number(sessionStorage.getItem('taskspace_invitesClaimedAt') || 0);
+    if (Date.now() - last < 15_000) return;
+    sessionStorage.setItem('taskspace_invitesClaimedAt', String(Date.now()));
+    callAction('claimMyInvites', {})
+      .then(result => {
+        const data = result.success ? (result.data as { claimed?: number; teamIds?: string[] }) : null;
+        if (!data || !(data.claimed && data.claimed > 0)) return;
+        // Land in the claimed team when the user has no active team yet
+        // (typical for a freshly invited account).
+        if (!localStorage.getItem('taskspace_activeTeamId') && data.teamIds?.[0]) {
+          localStorage.setItem('taskspace_activeTeamId', data.teamIds[0]);
+        }
+        window.location.reload();
+      })
+      .catch(() => {});
+  }, [currentUser?.id]);
+
   const { records: activeTeamMemberRecords } = useQuery<TeamMemberRecord>(
     'team_members',
     activeTeamId ? { where: { TeamId: activeTeamId } } : {}
@@ -149,22 +175,27 @@ export default function HomePage() {
     try {
       const already = myMembershipRecords?.find(r => r.data.TeamId === teamId && r.data.UserId === currentUser.id);
       if (already) { handleSelectTeam(teamId); return true; }
-      await createTeamMember({
-        TeamId: teamId, UserId: currentUser.id, RoleInTeam: 'member',
-        JoinedAt: Date.now(), Email: currentUser.email, Status: 'active',
-      });
-      setActiveTeamId(teamId);
-      localStorage.setItem('taskspace_activeTeamId', teamId);
+      // Server-side join: claims a pending invite for my email when one exists
+      // (no duplicate membership records), otherwise creates a fresh membership
+      // in open teams.
+      const result = await callAction('joinTeam', { teamId: teamId.trim() });
+      if (!result.success) { console.error('[team] join failed:', result.error); return false; }
+      localStorage.setItem('taskspace_activeTeamId', teamId.trim());
+      // Reload so room connections re-resolve permissions with the new
+      // membership (per-connection caches otherwise serve stale/empty data).
+      window.location.reload();
       return true;
     } catch (err) {
       console.error('[team] join failed:', err);
       return false;
     }
-  }, [currentUser, createTeamMember, myMembershipRecords, handleSelectTeam]);
+  }, [currentUser, myMembershipRecords, handleSelectTeam]);
 
-  const handleAddMember = useCallback(async (email: string): Promise<{ status: 'added' | 'invited' | 'already_member' | 'error'; teamId?: string }> => {
+  const handleAddMember = useCallback(async (rawEmail: string): Promise<{ status: 'added' | 'invited' | 'already_member' | 'error'; teamId?: string }> => {
     if (!activeTeamId) return { status: 'error' };
-    const existingRecord = (activeTeamMemberRecords || []).find(r => r.data.Email === email);
+    // Normalize: claims match on the JWT's (lowercase) email.
+    const email = rawEmail.trim().toLowerCase();
+    const existingRecord = (activeTeamMemberRecords || []).find(r => (r.data.Email || '').toLowerCase() === email);
     if (existingRecord) return { status: 'already_member' };
     // Server action lookup so we can resolve users we don't share a team with yet.
     const lookup = await callAction('lookupUserByEmail', { email });

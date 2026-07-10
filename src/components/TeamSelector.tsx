@@ -44,7 +44,7 @@ export function TeamSelector({ teams, selectedTeamId, onSelectTeam, onCreateTeam
 
   return (
     <div ref={containerRef} style={s.container}>
-      <button onClick={() => setIsOpen(prev => !prev)} style={s.trigger}>
+      <button data-testid="team-selector-trigger" onClick={() => setIsOpen(prev => !prev)} style={s.trigger}>
         <Icon name="users" size={13} color={T.textFaint} />
         <span style={s.triggerLabel}>{selectedTeam?.name || 'Select team'}</span>
         <Icon name={isOpen ? 'chevron-up' : 'chevron-down'} size={12} color={T.textFaint} />

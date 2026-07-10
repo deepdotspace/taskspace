@@ -437,8 +437,14 @@ app.get('*', async (c) => {
 // Action Tools — route to app's own RecordRoom DO
 // =============================================================================
 
-function createActionTools(env: Env, userId: string, callerJwt: string): ActionTools {
-  const stub = env.RECORD_ROOMS.get(env.RECORD_ROOMS.idFromName(`app:${env.APP_NAME}`))
+/** ActionTools + a scoped variant bound to another room (e.g. `team:<id>`).
+ *  Per-room RBAC ('team'-level reads) resolves memberships from the ROOM'S
+ *  OWN team_members table, so server actions mirror membership rows into the
+ *  team rooms through this. */
+export type AppActionTools = ActionTools & { forRoom: (roomId: string) => AppActionTools }
+
+function createActionTools(env: Env, userId: string, callerJwt: string, roomName?: string): AppActionTools {
+  const stub = env.RECORD_ROOMS.get(env.RECORD_ROOMS.idFromName(roomName ?? `app:${env.APP_NAME}`))
 
   async function execTool<T>(tool: string, params: Record<string, unknown>): Promise<ActionResult<T>> {
     const res = await stub.fetch(new Request('https://internal/api/tools/execute', {
@@ -490,6 +496,7 @@ function createActionTools(env: Env, userId: string, callerJwt: string): ActionT
       execTool<{
         user: { id: string; name: string; email: string; imageUrl?: string; role: string }
       }>('users.register', { ...opts }),
+    forRoom: (roomId: string) => createActionTools(env, userId, callerJwt, roomId),
   }
 }
 

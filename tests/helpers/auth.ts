@@ -57,13 +57,13 @@ export async function signOut(page: Page) {
 
 /**
  * Get a signed-in user into the team workspace. New accounts land on the
- * team-onboarding gate ("Welcome to Task Manager") — create a team there
- * so `app-container` renders. Idempotent for users who already have a team.
+ * team-onboarding gate ("Set up your team") — create a team there so
+ * `app-container` renders. Idempotent for users who already have a team.
  */
 export async function enterWorkspace(page: Page, teamName = 'Test Team') {
   await page.goto('/home')
   const appContainer = page.getByTestId('app-container')
-  const gate = page.getByText('Welcome to Taskspace')
+  const gate = page.getByText('Set up your team')
   await appContainer.or(gate).first().waitFor({ state: 'visible', timeout: 15000 })
 
   if (await gate.isVisible()) {
@@ -75,9 +75,9 @@ export async function enterWorkspace(page: Page, teamName = 'Test Team') {
       .then(() => true)
       .catch(() => false)
     if (!settled) {
-      await page.getByRole('button', { name: 'Create a New Team' }).click()
-      await page.getByPlaceholder('e.g. Engineering, Design, Marketing').fill(teamName)
-      await page.getByRole('button', { name: 'Create Team' }).click()
+      await page.getByRole('button', { name: 'Create a team' }).click()
+      await page.getByPlaceholder('Acme Inc').fill(teamName)
+      await page.getByRole('button', { name: 'Create team' }).click()
       await appContainer.waitFor({ state: 'visible', timeout: 15000 })
     }
   }
