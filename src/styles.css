@@ -221,6 +221,15 @@
   background-color: #1CAF7D !important;
 }
 
+/* AI assistant dock header buttons */
+.ts-dock-btn {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.ts-dock-btn:hover {
+  background-color: #F1F1F6 !important;
+  color: #6E7191 !important;
+}
+
 /* ── Momentum design tokens (shared) ───────────────── */
 :root {
   --ts-accent: #6B4CE6;
@@ -281,6 +290,18 @@ select {
     right: 0 !important;
     bottom: 0 !important;
     height: auto !important;
+    /* Reserve space for the fixed bottom tab bar */
+    padding-bottom: calc(62px + env(safe-area-inset-bottom)) !important;
+    box-sizing: border-box !important;
+  }
+
+  .mobile-fab:active {
+    transform: scale(0.94);
+  }
+
+  [data-mobile-tabbar] button:active {
+    background: rgba(107, 76, 230, 0.06);
+    border-radius: 10px;
   }
 
   input, textarea, select {

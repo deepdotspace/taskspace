@@ -108,8 +108,6 @@ interface ToolbarProps {
   onToggleFilterDropdown: () => void;
   // Display name helper
   getDisplayName: (user: WidgetUser | null) => string;
-  // Primary "New task" action — focuses the existing QuickAdd entry point
-  onNewTask?: () => void;
 }
 
 function Toolbar(props: ToolbarProps) {
@@ -127,7 +125,6 @@ function Toolbar(props: ToolbarProps) {
     showSortDropdown, onToggleSortDropdown,
     showFilterDropdown, onToggleFilterDropdown,
     getDisplayName,
-    onNewTask,
   } = props;
 
   // State for expanded projects in filter
@@ -459,20 +456,6 @@ function Toolbar(props: ToolbarProps) {
           </>
         )}
       </div>
-
-      {/* Primary "New task" button — triggers the existing QuickAdd entry point */}
-      {onNewTask && (
-        <button
-          data-testid="new-task-btn"
-          onClick={onNewTask}
-          style={{ ...styles.primaryBtn, marginLeft: 'auto' }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          New task
-        </button>
-      )}
     </div>
   );
 }

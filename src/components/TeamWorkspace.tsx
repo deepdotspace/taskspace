@@ -19,6 +19,7 @@ import BulkActionBar from './BulkActionBar';
 import ReadOnlyBanner from './ReadOnlyBanner';
 import ConfirmModal from './ConfirmModal';
 import LoadingScreen from './LoadingScreen';
+import MobileTabBar from './MobileTabBar';
 import KanbanBoard from './KanbanBoard';
 import { ChatPanel } from './ChatPanel';
 import { TeamSelector } from './TeamSelector';
@@ -611,8 +612,7 @@ export default function TeamWorkspace({
               isUserView={currentView.type === VIEWS.USER}
               showSortDropdown={showSortDropdown} onToggleSortDropdown={handleToggleSortDropdown}
               showFilterDropdown={showFilterDropdown} onToggleFilterDropdown={handleToggleFilterDropdown}
-              getDisplayName={getDisplayName}
-              onNewTask={(isReadOnly || currentView.type === VIEWS.LOGBOOK || currentView.type === VIEWS.TRASH) ? undefined : focusQuickAdd} />
+              getDisplayName={getDisplayName} />
 
             {viewMode === 'list' && (<>
               {!isReadOnly && selectedTaskIds.length > 1 && (
@@ -669,27 +669,32 @@ export default function TeamWorkspace({
         </div>
       </div>
 
-      {/* AI Chat panel */}
+      {/* AI Chat panel — right-docked assistant */}
       {showChat && (
         <>
-          <div style={{ width: 1, background: '#ECEDF3', flexShrink: 0 }} />
-          <div style={{ width: isMobile ? '100vw' : 420, flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden', position: 'relative' }}>
+          <div style={{
+            width: isMobile ? '100vw' : 380, flexShrink: 0, display: 'flex', flexDirection: 'column',
+            background: '#FCFCFD', borderLeft: '1px solid #ECEDF3', overflow: 'hidden', position: 'relative',
+          }}>
             <ChatPanel
               chatId={activeChatId}
               userId={currentUser.id}
               onChatCreated={setActiveChatId}
               disabled={creatingChat}
               header={
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 8px', height: 44, borderBottom: '1px solid #ECEDF3', flexShrink: 0 }}>
-                  <span style={{ flex: 1, fontWeight: 600, fontSize: 14, paddingLeft: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>AI Assistant</span>
-                  <button onClick={handleNewChat} title="New chat" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, color: '#9CA0B8' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', borderBottom: '1px solid #F1F1F6', flexShrink: 0 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 7, background: 'linear-gradient(150deg,#8B6CFF,#6B4CE6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15l-1.9-4.6L5.5 9l4.6-1.4z" /></svg>
+                  </div>
+                  <span style={{ flex: 1, fontWeight: 650, fontSize: 14, letterSpacing: '-0.01em', color: '#1B1C2E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Assistant</span>
+                  <button onClick={handleNewChat} title="New chat" className="ts-dock-btn" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 7, color: '#9CA0B8' }}>
                     <Icon name="plus" size={16} />
                   </button>
-                  <button onClick={() => setHistoryOpen(v => !v)} title="Chat history" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, color: historyOpen ? '#6B4CE6' : '#9CA0B8' }}>
-                    <Icon name="clock" size={16} />
+                  <button onClick={() => setHistoryOpen(v => !v)} title="Chat history" className="ts-dock-btn" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 7, color: historyOpen ? '#6B4CE6' : '#9CA0B8' }}>
+                    <Icon name="clock" size={15} />
                   </button>
-                  <button onClick={() => { setShowChat(false); setHistoryOpen(false); }} title="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, color: '#9CA0B8' }}>
-                    <Icon name="x" size={16} />
+                  <button onClick={() => { setShowChat(false); setHistoryOpen(false); }} title="Close" className="ts-dock-btn" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 7, color: '#9CA0B8' }}>
+                    <Icon name={isMobile ? 'x' : 'chevron-right'} size={16} />
                   </button>
                 </div>
               }
@@ -816,8 +821,8 @@ export default function TeamWorkspace({
         </div>
       )}
 
-      {/* AI Chat floating button */}
-      {!isReadOnly && !showChat && (
+      {/* AI Chat floating button — desktop only (mobile uses the Assistant tab) */}
+      {!isReadOnly && !showChat && !isMobile && (
         <button
           onClick={() => setShowChat(true)}
           title="AI Assistant"
@@ -842,6 +847,37 @@ export default function TeamWorkspace({
         >
           ✦
         </button>
+      )}
+
+      {/* Mobile: New-task FAB (list views only) + bottom tab bar */}
+      {isMobile && !isReadOnly && !showChat && viewMode === 'list'
+        && currentView.type !== VIEWS.LOGBOOK && currentView.type !== VIEWS.TRASH && (
+        <button
+          onClick={focusQuickAdd}
+          aria-label="New task"
+          className="mobile-fab"
+          style={{
+            position: 'fixed', right: 18, bottom: 'calc(74px + env(safe-area-inset-bottom))',
+            width: 54, height: 54, borderRadius: '50%', border: 'none', cursor: 'pointer',
+            background: 'linear-gradient(150deg,#8B6CFF,#6B4CE6)', color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 8px 20px -4px rgba(107,76,230,0.55)', zIndex: 1002,
+          }}
+        >
+          <Icon name="plus" size={24} />
+        </button>
+      )}
+
+      {isMobile && (
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 1003 }}>
+          <MobileTabBar
+            currentViewType={currentView.type}
+            chatOpen={showChat}
+            showAssistant={!isReadOnly}
+            onSelectView={(type) => { setShowChat(false); handleViewChange({ type }); }}
+            onOpenAssistant={() => setShowChat(true)}
+          />
+        </div>
       )}
 
       <ConfirmModal isOpen={deleteConfirmModal.isOpen}
