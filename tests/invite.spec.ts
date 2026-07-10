@@ -58,6 +58,10 @@ test.describe('Team invite flow', () => {
       await a.getByPlaceholder('Enter email address…').fill(BOB.email)
       await a.getByRole('button', { name: 'Add', exact: true }).click()
       await expect(a.getByText(BOB.email).first()).toBeVisible({ timeout: 10000 })
+      // The just-added member must never render as "Anonymous" (stale
+      // directory profiles fall back to the membership email — no refresh
+      // required)
+      await expect(a.getByText('Anonymous', { exact: true })).toHaveCount(0)
       await a.getByText('Back to app').click()
       await expect(a.getByTestId('app-container')).toBeVisible()
 

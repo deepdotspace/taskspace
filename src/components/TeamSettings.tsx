@@ -99,15 +99,19 @@ export function TeamSettings({
   const allRows = [...activeMembers, ...invitedMembers];
   const canDeleteTeam = isTeamAdmin && currentMember?.userId === team.createdBy;
 
+  // The connected user directory can lag behind (a member added a moment ago
+  // still reads "Anonymous"/no email until the next reconnect) — prefer the
+  // membership record's Email over placeholder directory profiles.
   const getMemberDisplayName = (member: TeamMember) => {
     if (member.isPending) return member.email || 'Invited User';
-    const roomUser = roomUsers.find(u => u.id === member.userId);
-    return roomUser?.name || member.email || 'Unknown';
+    const name = roomUsers.find(u => u.id === member.userId)?.name;
+    if (name && name !== 'Anonymous' && name !== 'Unknown') return name;
+    return member.email || name || 'Unknown';
   };
 
   const getMemberEmail = (member: TeamMember) => {
     if (member.isPending) return member.email;
-    return roomUsers.find(u => u.id === member.userId)?.email || '';
+    return roomUsers.find(u => u.id === member.userId)?.email || member.email || '';
   };
 
   const navItems: { id: SettingsTab; label: string; icon: string }[] = [
