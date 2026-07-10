@@ -80,8 +80,8 @@ export default function HomePage() {
   const myTeams: Team[] = useMemo(() =>
     (teamRecords || []).map(r => ({
       id: r.recordId,
-      name: r.data.Name,
-      createdBy: r.data.CreatedBy,
+      name: r.data.Name || 'Untitled team',
+      createdBy: r.data.CreatedBy || '',
       isOpen: !!r.data.IsOpen,
     })),
     [teamRecords]
@@ -89,14 +89,16 @@ export default function HomePage() {
 
   const activeTeam = useMemo(() => myTeams.find(t => t.id === activeTeamId) || null, [myTeams, activeTeamId]);
 
+  // Note: the server omits empty-string columns from record payloads (e.g. an
+  // invited-but-not-yet-signed-in member has no UserId), so default them here.
   const activeTeamMembers: TeamMember[] = useMemo(() =>
     (activeTeamMemberRecords || []).map(r => ({
       id: r.recordId,
       teamId: r.data.TeamId,
-      userId: r.data.UserId,
+      userId: r.data.UserId || '',
       roleInTeam: r.data.RoleInTeam,
       joinedAt: r.data.JoinedAt,
-      email: r.data.Email,
+      email: r.data.Email || '',
       status: r.data.Status,
       isPending: r.data.Status === 'invited',
     })),

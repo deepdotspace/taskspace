@@ -239,7 +239,7 @@ export function TeamSettings({
                     <div style={sx.memberCell}>
                       <div style={{
                         ...sx.avatar,
-                        backgroundColor: getUserColor(member.userId),
+                        backgroundColor: getUserColor(member.userId || member.id),
                         opacity: isInvited ? 0.6 : 1,
                       }}>
                         {displayName[0]?.toUpperCase() || '?'}

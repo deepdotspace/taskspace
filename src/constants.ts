@@ -241,7 +241,8 @@ export const USER_COLOR_PALETTE = [
   '#4C6FFF', '#FF2D75', '#00C7BE', '#A2845E', '#38B6E0',
 ];
 
-export function getUserColor(userId: string): string {
+export function getUserColor(userId: string | null | undefined): string {
+  if (!userId) return USER_COLOR_PALETTE[0];
   let hash = 0;
   for (let i = 0; i < userId.length; i++) {
     hash = ((hash << 5) - hash) + userId.charCodeAt(i);
