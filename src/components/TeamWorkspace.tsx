@@ -711,7 +711,7 @@ export default function TeamWorkspace({
               header={
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', borderBottom: '1px solid #F1F1F6', flexShrink: 0 }}>
                   <div style={{ width: 24, height: 24, borderRadius: 7, background: 'linear-gradient(150deg,#8B6CFF,#6B4CE6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15l-1.9-4.6L5.5 9l4.6-1.4z" /></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3.5L13.6 10.4L20.5 12L13.6 13.6L12 20.5L10.4 13.6L3.5 12L10.4 10.4Z" /></svg>
                   </div>
                   <span style={{ flex: 1, fontWeight: 650, fontSize: 14, letterSpacing: '-0.01em', color: '#1B1C2E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Assistant</span>
                   <button onClick={handleNewChat} title="New chat" className="ts-dock-btn" style={{ background: 'none', border: 'none', cursor: 'pointer', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 7, color: '#9CA0B8' }}>
