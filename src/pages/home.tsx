@@ -210,6 +210,11 @@ export default function HomePage() {
         Email: email,
         Status: isExistingUser ? 'active' : 'invited',
       });
+      // Directly-active members get their team-room mirror right away so
+      // reads + real-time pushes work without waiting for their next load.
+      if (isExistingUser && targetUser) {
+        callAction('mirrorMembership', { teamId: activeTeamId, userId: targetUser.id }).catch(() => {});
+      }
       return { status: isExistingUser ? 'added' : 'invited' };
     } catch {
       return { status: 'error' };

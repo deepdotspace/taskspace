@@ -292,6 +292,36 @@ export const actions: Record<string, ActionHandler> = {
   },
 
   /**
+   * Mirror an existing app-room membership into the team's own room.
+   * Called by the inviter right after adding an already-registered user, so
+   * the new member gets live read access (and real-time pushes) without
+   * waiting for their own next app load. Verifies the membership exists and
+   * that the caller is an active member of the same team.
+   */
+  mirrorMembership: async ({ userId, params, tools }) => {
+    const { teamId, userId: targetUserId } = params as { teamId: string; userId: string }
+    if (!teamId || !targetUserId) return { success: false, error: 'Missing teamId/userId' }
+
+    const callerMembership = await getCallerMembership(tools, userId, teamId)
+    if (!callerMembership) return { success: false, error: 'Forbidden: not a team member' }
+
+    const targetRes = await tools.query('team_members', {
+      where: { TeamId: teamId, UserId: targetUserId, Status: 'active' },
+    })
+    if (!targetRes.success) return { success: false, error: 'Lookup failed' }
+    const target = (targetRes.data as { records: Envelope[] }).records[0]
+    if (!target) return { success: false, error: 'No active membership to mirror' }
+
+    const created = await ensureTeamRoomMirror(tools as Tools, teamId, {
+      UserId: targetUserId,
+      RoleInTeam: (target.data.RoleInTeam as string) || 'member',
+      JoinedAt: (target.data.JoinedAt as number) || Date.now(),
+      Email: (target.data.Email as string) || '',
+    })
+    return { success: true, data: { created } }
+  },
+
+  /**
    * Join a team by ID — atomic server-side join that claims a pending invite
    * for the caller's email when one exists (instead of creating a duplicate
    * membership record). Fresh joins require the team to be open.

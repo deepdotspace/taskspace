@@ -126,6 +126,24 @@ test.describe('Team invite flow', () => {
       await a.getByRole('button', { name: 'Add', exact: true }).click()
       await expect(a.getByText(ghostEmail).first()).toBeVisible({ timeout: 10000 })
       await expect(a.getByText('Invited', { exact: true }).first()).toBeVisible({ timeout: 10000 })
+      await a.getByText('Back to app').click()
+      await expect(a.getByTestId('app-container')).toBeVisible()
+
+      // ── Real-time: A's changes reach B live (no reload on B's side) ───
+      // B stays parked on the task list. A creates a new task; it must
+      // appear on B's screen via the websocket push alone.
+      const liveTitle = `Realtime ping ${stamp}`
+      const quickAdd2 = a.locator('[data-quick-add] input').first()
+      await quickAdd2.fill(liveTitle)
+      await quickAdd2.press('Enter')
+      await expect(b.getByText(liveTitle)).toBeVisible({ timeout: 15000 })
+
+      // And an edit: A renames the just-created task (QuickAdd auto-selects
+      // it, so the detail panel is already on it); B sees the new title live.
+      const renamed = `Renamed live ${stamp}`
+      await a.getByTestId('task-detail').getByTestId('task-detail-title').fill(renamed)
+      await a.getByTestId('task-detail').getByTestId('task-detail-title').blur()
+      await expect(b.getByText(renamed)).toBeVisible({ timeout: 15000 })
     } finally {
       await ctxA.close()
       await ctxB.close()
