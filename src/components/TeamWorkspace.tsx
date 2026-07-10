@@ -18,6 +18,7 @@ import TaskDetail from './TaskDetail';
 import BulkActionBar from './BulkActionBar';
 import ReadOnlyBanner from './ReadOnlyBanner';
 import ConfirmModal from './ConfirmModal';
+import LoadingScreen from './LoadingScreen';
 import KanbanBoard from './KanbanBoard';
 import { ChatPanel } from './ChatPanel';
 import { TeamSelector } from './TeamSelector';
@@ -542,7 +543,7 @@ export default function TeamWorkspace({
     return null;
   }, [addProject, updateTask]);
 
-  if (dataLoading) return null;
+  if (dataLoading) return <LoadingScreen />;
 
   return (
     <div data-app-container data-testid="app-container" style={{

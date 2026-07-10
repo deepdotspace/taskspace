@@ -11,6 +11,7 @@ import { useUser, useUsers, useQuery, useMutations, RecordScope } from 'deepspac
 
 import { TeamOnboarding } from '../components/TeamOnboarding';
 import TeamWorkspace from '../components/TeamWorkspace';
+import LoadingScreen from '../components/LoadingScreen';
 
 import { useBodyBackground, useIsMobile } from '../hooks';
 import { callAction } from '../utils/callAction';
@@ -206,14 +207,15 @@ export default function HomePage() {
   const isReadOnly = !platformUser || platformUser.role === 'viewer';
   const teamDataLoading = membershipStatus === 'loading' || teamStatus === 'loading';
 
-  if (userLoading || teamDataLoading) return null;
+  if (userLoading || teamDataLoading) return <LoadingScreen />;
 
   // No teams yet → onboarding gate
   if (currentUser && myTeams.length === 0) {
     return <TeamOnboarding onCreate={handleCreateTeam} onJoin={handleJoinTeam} />;
   }
 
-  if (!currentUser || !activeTeamId || !activeTeam) return null;
+  // Transient: activeTeamId is being resolved by the sync effect above
+  if (!currentUser || !activeTeamId || !activeTeam) return <LoadingScreen />;
 
   return (
     <>
