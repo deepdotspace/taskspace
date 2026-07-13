@@ -13,7 +13,7 @@ import { TeamOnboarding } from '../components/TeamOnboarding';
 import TeamWorkspace from '../components/TeamWorkspace';
 import LoadingScreen from '../components/LoadingScreen';
 
-import { useBodyBackground, useIsMobile } from '../hooks';
+import { useBodyBackground, useIsMobile, useLoadedOnce } from '../hooks';
 import { callAction } from '../utils/callAction';
 
 import { APP_NAME } from '../constants';
@@ -242,8 +242,12 @@ export default function HomePage() {
   const isMobile = useIsMobile();
   const isReadOnly = !platformUser || platformUser.role === 'viewer';
   const teamDataLoading = membershipStatus === 'loading' || teamStatus === 'loading';
+  // Sticky: WS reconnects flip query statuses back to 'loading' (with stale
+  // records preserved) — only blank the screen before the FIRST load, or the
+  // workspace flashes "Loading…" on every reconnect.
+  const loadedOnce = useLoadedOnce(!userLoading && !teamDataLoading);
 
-  if (userLoading || teamDataLoading) return <LoadingScreen />;
+  if (!loadedOnce) return <LoadingScreen />;
 
   // No teams yet → onboarding gate
   if (currentUser && myTeams.length === 0) {

@@ -32,6 +32,7 @@ import {
   useMouseDragResize,
   useTaskHotkeys,
   useDragDrop,
+  useLoadedOnce,
 } from '../hooks';
 
 // Utils
@@ -571,7 +572,11 @@ export default function TeamWorkspace({
     return null;
   }, [addProject, updateTask]);
 
-  if (dataLoading) return <LoadingScreen />;
+  // Sticky per team: reconnects flip statuses to 'loading' with stale records
+  // preserved — only show the full-screen loader on a room's FIRST load.
+  const dataLoadedOnce = useLoadedOnce(!dataLoading, activeTeamId);
+
+  if (!dataLoadedOnce) return <LoadingScreen />;
 
   return (
     <div data-app-container data-testid="app-container" style={{
