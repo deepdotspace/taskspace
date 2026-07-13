@@ -410,4 +410,33 @@ export const actions: Record<string, ActionHandler> = {
 
     return tools.remove('teams', teamId)
   },
+
+  /**
+   * One-off cleanup: purge task/project/tag rows that leaked into the SHARED
+   * app-scope room. Workspace data lives exclusively in per-team rooms; a
+   * pre-fix AI-chat bug wrote records into the app room, where every app
+   * user's connection can potentially observe them. By design there is no
+   * legitimate row in these collections at app scope, so deleting everything
+   * found there is safe. Runs as an app action (RBAC bypass) — acceptable
+   * because it only ever removes rows that should not exist.
+   */
+  purgeAppScopeTaskData: async ({ tools }) => {
+    const purged: Record<string, number> = {}
+    for (const collection of ['tasks', 'projects', 'tags'] as const) {
+      purged[collection] = 0
+      // Re-query until drained — a single query may be capped by the DO's
+      // default page size. The iteration bound is a runaway guard only.
+      for (let round = 0; round < 50; round++) {
+        const res = await tools.query(collection, {})
+        if (!res.success) break
+        const records = (res.data as { records: Envelope[] }).records
+        if (records.length === 0) break
+        for (const r of records) {
+          const del = await tools.remove(collection, r.recordId)
+          if (del.success) purged[collection]++
+        }
+      }
+    }
+    return { success: true, data: { purged } }
+  },
 }

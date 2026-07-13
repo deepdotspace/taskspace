@@ -31,7 +31,7 @@ import {
   appendMessage,
 } from 'deepspace/worker'
 import type { ChatTurn, VerifyResult } from 'deepspace/worker'
-import { schemas } from '../schemas.js'
+import { teamSchemas } from '../schemas.js'
 import { buildSystemPrompt, buildTools } from './tools.js'
 // Type-only — TypeScript strips these at runtime, so no circular import
 // with worker.ts (which imports `registerAiChatRoutes` from this file).
@@ -72,6 +72,61 @@ const DEFAULT_MODEL = 'claude-sonnet-4-6'
 
 function recordRoomStub(env: Env): DurableObjectStub {
   return env.RECORD_ROOMS.get(env.RECORD_ROOMS.idFromName(`app:${env.APP_NAME}`))
+}
+
+function teamRoomStub(env: Env, teamId: string): DurableObjectStub {
+  return env.RECORD_ROOMS.get(env.RECORD_ROOMS.idFromName(`team:${teamId}`))
+}
+
+// Workspace data collections the assistant may touch, mapped to their team
+// column. All task/project/tag records live in per-team DO rooms and every
+// row carries this column — the executor stamps it so records land visible
+// to the workspace queries (which filter by TeamId) and can't be written
+// into another team.
+const TEAM_COLLECTIONS = new Map<string, string | undefined>(
+  teamSchemas.map((s) => [s.name, s.teamField]),
+)
+
+/** Execute a built-in DO tool. `asAppAction` bypasses user RBAC — use only
+ *  for server-side checks (e.g. membership validation), never for calls
+ *  whose params the model controls. */
+async function execDoTool(
+  stub: DurableObjectStub,
+  userId: string,
+  tool: string,
+  params: Record<string, unknown>,
+  opts?: { asAppAction?: boolean; signal?: AbortSignal },
+): Promise<unknown> {
+  const res = await stub.fetch(new Request('https://internal/api/tools/execute', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-User-Id': userId,
+      ...(opts?.asAppAction ? { 'X-App-Action': 'true' } : {}),
+    },
+    body: JSON.stringify({ tool, params }),
+    ...(opts?.signal ? { signal: opts.signal } : {}),
+  }))
+  return res.json()
+}
+
+/** True when the caller has an active membership row for the team. Checks
+ *  the app room's master team_members table (the mirror in the team room is
+ *  derived from it). Empty/absent Status counts as active, matching the
+ *  filtered user.list semantics in worker.ts. */
+async function isActiveTeamMember(env: Env, userId: string, teamId: string): Promise<boolean> {
+  const res = (await execDoTool(recordRoomStub(env), userId, 'records.query', {
+    collection: 'team_members',
+    where: { TeamId: teamId, UserId: userId },
+  }, { asAppAction: true })) as {
+    success?: boolean
+    data?: { records?: Array<{ data?: { Status?: string } }> }
+  }
+  if (!res?.success) return false
+  return (res.data?.records ?? []).some((r) => {
+    const status = r.data?.Status
+    return !status || status === 'active'
+  })
 }
 
 // Cap on user-supplied content length. Far above any realistic message;
@@ -147,15 +202,26 @@ export function registerAiChatRoutes(
     const jwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
     if (!jwt) return c.json({ error: 'Unauthorized' }, 401)
 
-    const { chatId, userMessageId, content, modelId } = await c.req.json<{
+    const { chatId, userMessageId, content, modelId, teamId } = await c.req.json<{
       chatId?: string
       userMessageId?: string
       content?: string
       modelId?: string
+      teamId?: string
     }>()
     if (typeof chatId !== 'string' || !chatId) return c.json({ error: 'chatId is required' }, 400)
     if (typeof userMessageId !== 'string' || !userMessageId) return c.json({ error: 'userMessageId is required' }, 400)
     if (typeof content !== 'string' || content.trim() === '') return c.json({ error: 'content is required' }, 400)
+    // Workspace data (tasks/projects/tags) lives in per-team DO rooms — the
+    // assistant's data tools are scoped to the caller's ACTIVE team room, so
+    // the room id must come with every turn and the caller must actually be
+    // an active member (otherwise any user could read/write any team's room
+    // by guessing its id).
+    if (typeof teamId !== 'string' || !teamId) return c.json({ error: 'teamId is required' }, 400)
+    if (!(await isActiveTeamMember(c.env, auth.userId, teamId))) {
+      console.warn('[ai-chat] REQUEST not-a-member', { userId: auth.userId, teamId })
+      return c.json({ error: 'Not a member of this team' }, 403)
+    }
     if (content.length > MAX_USER_CONTENT_LENGTH) {
       return c.json({ error: `content exceeds ${MAX_USER_CONTENT_LENGTH} chars` }, 413)
     }
@@ -225,7 +291,7 @@ export function registerAiChatRoutes(
     // modelId already validated above — fall back to default only when omitted.
     const usedModelId = modelId ?? DEFAULT_MODEL
     const ai = createDeepSpaceAI(c.env, ALLOWED_MODELS[usedModelId], { authToken: jwt })
-    const baseSystem = buildSystemPrompt(c.env.APP_NAME, schemas)
+    const baseSystem = buildSystemPrompt(c.env.APP_NAME, teamSchemas)
 
     // Compaction inserts at most one summary system message at index 0; fold
     // it into the top-level `system` so we don't pass two system roles. Then
@@ -236,20 +302,42 @@ export function registerAiChatRoutes(
     const systemText = summary ? `${baseSystem}\n\n${summary.content}` : baseSystem
     const messages = turnsToCoreMessages(summary ? rest : prepared)
 
+    // Data tools run against the caller's team room — NOT the shared app
+    // room. The app room's task/project/tag tables are empty by design (the
+    // UI never reads them); writing there both hides the records from the
+    // user and leaks them into a room every app user connects to.
+    const teamStub = teamRoomStub(c.env, teamId)
     const tools = buildTools(async (toolName, params) => {
-      const res = await stub.fetch(new Request('https://internal/api/tools/execute', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': auth.userId,
-        },
-        body: JSON.stringify({ tool: toolName, params }),
-        // Forward the route's abort signal so a tool fetch in flight is
-        // cancelled if the client navigates away mid-stream — without this,
-        // the LLM stream cancels but the per-tool DO call runs to completion.
+      let target = stub
+      let effectiveParams = params
+      if (toolName.startsWith('records.')) {
+        const collection = typeof params.collection === 'string' ? params.collection : ''
+        if (!TEAM_COLLECTIONS.has(collection)) {
+          return {
+            success: false,
+            error: `Collection "${collection}" is not available to the assistant. Available collections: ${[...TEAM_COLLECTIONS.keys()].join(', ')}.`,
+          }
+        }
+        target = teamStub
+        const teamField = TEAM_COLLECTIONS.get(collection)
+        if (teamField) {
+          if (toolName === 'records.create' || toolName === 'records.update') {
+            // Stamp the workspace id server-side: the UI queries filter by
+            // TeamId, and the model must not be able to re-home a record.
+            const data = (params.data as Record<string, unknown> | undefined) ?? {}
+            effectiveParams = { ...params, data: { ...data, [teamField]: teamId } }
+          } else if (toolName === 'records.query') {
+            const where = (params.where as Record<string, unknown> | undefined) ?? {}
+            effectiveParams = { ...params, where: { ...where, [teamField]: teamId } }
+          }
+        }
+      }
+      // Forward the route's abort signal so a tool fetch in flight is
+      // cancelled if the client navigates away mid-stream — without this,
+      // the LLM stream cancels but the per-tool DO call runs to completion.
+      const raw = await execDoTool(target, auth.userId, toolName, effectiveParams, {
         signal: c.req.raw.signal,
-      }))
-      const raw = await res.json()
+      })
       return capToolResultSize(raw, DEFAULT_CONTEXT_CONFIG.toolResultCap)
     })
 

@@ -711,6 +711,7 @@ export default function TeamWorkspace({
             <ChatPanel
               chatId={activeChatId}
               userId={currentUser.id}
+              teamId={activeTeamId}
               onChatCreated={setActiveChatId}
               disabled={creatingChat}
               header={

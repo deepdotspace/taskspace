@@ -80,6 +80,9 @@ export interface ChatPanelProps {
   chatId: string | null
   /** Current user id; scopes the messages query as defense-in-depth. */
   userId: string
+  /** Active team (workspace) id. The worker scopes the assistant's data
+   *  tools to this team's room — without it the server rejects the turn. */
+  teamId: string
   /** Fired when the panel auto-creates a chat. */
   onChatCreated?: (chatId: string) => void
   /** Models to show in the picker. Defaults to the SDK's default set. */
@@ -128,6 +131,7 @@ const DEFAULT_MODELS: ModelOption[] = [
 
 function useStreamingChat(
   chatId: string | null,
+  teamId: string,
   modelId: string | undefined,
   onChatCreated?: (id: string) => void,
 ) {
@@ -220,7 +224,7 @@ function useStreamingChat(
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ chatId: activeChatId, userMessageId, content, modelId }),
+          body: JSON.stringify({ chatId: activeChatId, userMessageId, content, modelId, teamId }),
           signal: abortRef.current.signal,
         })
         if (!res.ok || !res.body) {
@@ -273,7 +277,7 @@ function useStreamingChat(
         // the server-emitted `X-Asst-Id` header captured into `serverId`.
       }
     },
-    [chatId, modelId, onChatCreated],
+    [chatId, teamId, modelId, onChatCreated],
   )
 
   const stop = useCallback(() => {
@@ -462,6 +466,7 @@ function finalizeToolInvocation(
 export function ChatPanel({
   chatId,
   userId,
+  teamId,
   onChatCreated,
   models: modelsProp,
   emptyStatePrompts,
@@ -490,6 +495,7 @@ export function ChatPanel({
 
   const { send, stop, retry, isLoading, error, inFlight } = useStreamingChat(
     chatId,
+    teamId,
     modelId,
     onChatCreated,
   )

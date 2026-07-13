@@ -73,4 +73,44 @@ test.describe('AI chat API', () => {
 
     expect(result).toEqual({ ok: true })
   })
+
+  // The assistant's data tools are scoped to the caller's active team room,
+  // so /api/ai/chat must reject turns without a teamId (400) or with a team
+  // the caller isn't an active member of (403). All three requests below
+  // fail validation before any model call, so this stays cheap and
+  // deterministic.
+  test('AI chat turn validates team membership before streaming', async ({ page }) => {
+    await signUp(page, ACCOUNT_A.email, { password: ACCOUNT_A.password, name: ACCOUNT_A.name })
+    await enterWorkspace(page)
+
+    const result = await page.evaluate(async () => {
+      const tokenRes = await fetch('/api/auth/token', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (!tokenRes.ok) return { error: `token failed: ${tokenRes.status}` }
+      const { token } = await tokenRes.json() as { token: string }
+      const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+
+      const teamId = localStorage.getItem('taskspace_activeTeamId')
+      const turn = (body: Record<string, unknown>) =>
+        fetch('/api/ai/chat', { method: 'POST', headers, body: JSON.stringify(body) })
+
+      const base = { chatId: 'chat-x', userMessageId: 'msg-1', content: 'hello' }
+      const noTeam = await turn(base)
+      const notMember = await turn({ ...base, teamId: 'team-the-caller-is-not-in' })
+      // Membership passes → proceeds to the chat lookup, which 404s.
+      const unknownChat = await turn({ ...base, teamId })
+
+      return {
+        hasTeam: !!teamId,
+        noTeam: noTeam.status,
+        notMember: notMember.status,
+        unknownChat: unknownChat.status,
+      }
+    })
+
+    expect(result).toEqual({ hasTeam: true, noTeam: 400, notMember: 403, unknownChat: 404 })
+  })
 })
