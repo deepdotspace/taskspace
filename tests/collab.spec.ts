@@ -1,10 +1,8 @@
 import { test, expect } from '@playwright/test'
 import { signUp, enterWorkspace } from './helpers/auth'
+import { ACCOUNT_A, ACCOUNT_B } from './helpers/accounts'
 
-const TEST_USERS = [
-  { email: 'alice-1777048251@deepspace.test', password: 'Pass123!', name: 'Alice' },
-  { email: 'bob-1777048251@deepspace.test', password: 'Pass123!', name: 'Bob' },
-]
+const TEST_USERS = [ACCOUNT_A, ACCOUNT_B]
 
 test.describe('Multi-user collaboration', () => {
   test('two users are recognized as different users', async ({ browser }) => {

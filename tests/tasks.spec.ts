@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test'
 import { signUp, enterWorkspace } from './helpers/auth'
 import { captureConsoleErrors } from './helpers/errors'
+import { ACCOUNT_A } from './helpers/accounts'
 
 test.describe('Task CRUD', () => {
   test.beforeEach(async ({ page }) => {
-    await signUp(page, 'alice-1777048251@deepspace.test', { password: 'Pass123!', name: 'Alice' })
+    await signUp(page, ACCOUNT_A.email, { password: ACCOUNT_A.password, name: ACCOUNT_A.name })
     await enterWorkspace(page)
   })
 

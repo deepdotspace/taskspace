@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { signUp } from './helpers/auth'
+import { ACCOUNT_A, ACCOUNT_B } from './helpers/accounts'
 
 /**
  * Team invite flow — reproduces the reported bug end-to-end:
@@ -13,8 +14,8 @@ import { signUp } from './helpers/auth'
  * Public signup is disabled on the dev auth worker, so this reuses the two
  * CLI-provisioned test accounts and creates a brand-new team per run.
  */
-const ALICE = { email: 'alice-1777048251@deepspace.test', password: 'Pass123!', name: 'Alice' }
-const BOB = { email: 'bob-1777048251@deepspace.test', password: 'Pass123!', name: 'Bob' }
+const ALICE = ACCOUNT_A
+const BOB = ACCOUNT_B
 
 /** Create a brand-new team through the team selector → onboarding popup. */
 async function createFreshTeam(page: Page, teamName: string) {

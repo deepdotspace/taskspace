@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { signUp, enterWorkspace } from './helpers/auth'
+import { ACCOUNT_A } from './helpers/accounts'
 
 test.describe('API tests', () => {
   test('auth proxy forwards to auth worker', async ({ request }) => {
@@ -10,7 +11,7 @@ test.describe('API tests', () => {
   test('WebSocket endpoint exists', async ({ page }) => {
     // The workspace requires sign-in + a team; once app-container renders,
     // the app has connected its RecordRoom WebSocket.
-    await signUp(page, 'alice-1777048251@deepspace.test', { password: 'Pass123!', name: 'Alice' })
+    await signUp(page, ACCOUNT_A.email, { password: ACCOUNT_A.password, name: ACCOUNT_A.name })
     await enterWorkspace(page)
   })
 })
@@ -29,7 +30,7 @@ test.describe('AI chat API', () => {
   })
 
   test('authenticated user can create and use a chat', async ({ page }) => {
-    await signUp(page, 'alice-1777048251@deepspace.test', { password: 'Pass123!', name: 'Alice' })
+    await signUp(page, ACCOUNT_A.email, { password: ACCOUNT_A.password, name: ACCOUNT_A.name })
     await enterWorkspace(page)
 
     const result = await page.evaluate(async () => {
