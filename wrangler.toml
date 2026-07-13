@@ -26,6 +26,12 @@ binding = "FILES"
 bucket_name = "auto"
 
 [vars]
+# This app predates the app-id scheme; the platform backfilled it with the
+# legacy name-based id "taskspace" (it owns the taskspace.app.space route and
+# its Durable Object data). Must match the registered id exactly — a fresh
+# `deepspace init` id would fork a new empty app on deploy. Verify with
+# `deepspace apps` (appId column).
+DEEPSPACE_APP_ID = "taskspace"
 APP_NAME = "taskspace"
 
 [dev]

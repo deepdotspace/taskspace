@@ -32,7 +32,6 @@ import type {
   MutateActionData,
   DOManifest,
   DOBindings,
-  UserAttachment,
 } from 'deepspace/worker'
 import { actions } from './src/actions/index.js'
 import { schemas } from './src/schemas.js'
@@ -78,18 +77,27 @@ export class AppRecordRoom extends RecordRoom {
     return super.fetch(request)
   }
 
-  protected override async onMessage(
-    ws: WebSocket,
-    user: UserAttachment,
-    msg: { type: string; [key: string]: unknown },
-  ): Promise<void> {
-    // Intercept user.list only in the app-level room.
-    if (msg?.type === MSG.USER_LIST && this.cachedRoomId?.startsWith('app:')) {
-      const handled = await this.tryFilteredUserList(ws, user.userId)
-      if (handled) return
-      // Fall through to default behavior on failure
+  // As of deepspace 0.5.6 RecordRoom dispatches client messages directly in
+  // webSocketMessage (the old onMessage(ws, user, msg) hook is no longer
+  // invoked), so the user.list interception moves here. The caller identity
+  // comes from the socket attachment set at connect time.
+  override async webSocketMessage(ws: WebSocket, message: ArrayBuffer | string): Promise<void> {
+    if (typeof message === 'string' && this.cachedRoomId?.startsWith('app:')) {
+      try {
+        const parsed = JSON.parse(message) as { type?: string }
+        if (parsed?.type === MSG.USER_LIST) {
+          const attachment = ws.deserializeAttachment() as { userId?: string } | null
+          if (attachment?.userId) {
+            const handled = await this.tryFilteredUserList(ws, attachment.userId)
+            if (handled) return
+            // Fall through to default behavior on failure
+          }
+        }
+      } catch {
+        // Not JSON / no type — let the default handler deal with it
+      }
     }
-    return super.onMessage(ws, user, msg)
+    return super.webSocketMessage(ws, message)
   }
 
   /**
