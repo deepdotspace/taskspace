@@ -224,7 +224,16 @@ function useStreamingChat(
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ chatId: activeChatId, userMessageId, content, modelId, teamId }),
+          body: JSON.stringify({
+            chatId: activeChatId,
+            userMessageId,
+            content,
+            modelId,
+            teamId,
+            // The worker anchors "today" for the model in the user's local
+            // timezone, so relative dates ("tomorrow") resolve correctly.
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          }),
           signal: abortRef.current.signal,
         })
         if (!res.ok || !res.body) {

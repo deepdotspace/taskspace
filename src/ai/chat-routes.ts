@@ -32,7 +32,7 @@ import {
 } from 'deepspace/worker'
 import type { ChatTurn, VerifyResult } from 'deepspace/worker'
 import { teamSchemas } from '../schemas.js'
-import { buildSystemPrompt, buildTools } from './tools.js'
+import { buildSystemPrompt, buildTools, formatCurrentDate } from './tools.js'
 // Type-only — TypeScript strips these at runtime, so no circular import
 // with worker.ts (which imports `registerAiChatRoutes` from this file).
 import type { Env, AppContext } from '../../worker.js'
@@ -202,12 +202,13 @@ export function registerAiChatRoutes(
     const jwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
     if (!jwt) return c.json({ error: 'Unauthorized' }, 401)
 
-    const { chatId, userMessageId, content, modelId, teamId } = await c.req.json<{
+    const { chatId, userMessageId, content, modelId, teamId, timeZone } = await c.req.json<{
       chatId?: string
       userMessageId?: string
       content?: string
       modelId?: string
       teamId?: string
+      timeZone?: string
     }>()
     if (typeof chatId !== 'string' || !chatId) return c.json({ error: 'chatId is required' }, 400)
     if (typeof userMessageId !== 'string' || !userMessageId) return c.json({ error: 'userMessageId is required' }, 400)
@@ -291,7 +292,15 @@ export function registerAiChatRoutes(
     // modelId already validated above — fall back to default only when omitted.
     const usedModelId = modelId ?? DEFAULT_MODEL
     const ai = createDeepSpaceAI(c.env, ALLOWED_MODELS[usedModelId], { authToken: jwt })
-    const baseSystem = buildSystemPrompt(c.env.APP_NAME, teamSchemas)
+    // Resolve "today" in the USER'S timezone (client sends its IANA zone;
+    // invalid/missing values fall back to UTC inside formatCurrentDate).
+    // Without an explicit date the model guesses from training data — wrong
+    // year and all — and mis-dates every "tomorrow"/"Thursday" the user says.
+    const currentDate = formatCurrentDate(
+      new Date(),
+      typeof timeZone === 'string' && timeZone.length <= 64 ? timeZone : undefined,
+    )
+    const baseSystem = buildSystemPrompt(c.env.APP_NAME, teamSchemas, currentDate)
 
     // Compaction inserts at most one summary system message at index 0; fold
     // it into the top-level `system` so we don't pass two system roles. Then

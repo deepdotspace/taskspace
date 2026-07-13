@@ -36,7 +36,26 @@ function interpretationLabel(interpretation: Interpretation): string {
   return typeof kind === 'string' ? kind : 'object'
 }
 
-export function buildSystemPrompt(appName: string, schemas: CollectionSchema[]): string {
+/** Render "today" in the user's timezone for the system prompt. The model
+ *  has NO idea what the current date is — without this it resolves "tomorrow"
+ *  or "Thursday" against its training-data guess (wrong year included). An
+ *  invalid/missing timeZone falls back to UTC rather than failing the turn. */
+export function formatCurrentDate(now: Date, timeZone?: string): string {
+  const opts: Intl.DateTimeFormatOptions = {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  }
+  try {
+    return now.toLocaleDateString('en-US', { ...opts, timeZone: timeZone || 'UTC' })
+  } catch {
+    return now.toLocaleDateString('en-US', { ...opts, timeZone: 'UTC' })
+  }
+}
+
+export function buildSystemPrompt(
+  appName: string,
+  schemas: CollectionSchema[],
+  currentDate: string,
+): string {
   const schemaSummary = schemas
     .map((s) => {
       const cols = (s.columns ?? [])
@@ -52,6 +71,10 @@ export function buildSystemPrompt(appName: string, schemas: CollectionSchema[]):
     'You can read and modify the user\'s data via the available tools. The',
     'user\'s own role and permissions still apply at the data layer — your',
     'tool calls run as the calling user, so you can only do what they could.',
+    '',
+    `Today's date is ${currentDate}. Resolve every relative date the user`,
+    'gives ("tomorrow", "Thursday", "next week") against this date — never',
+    'against your own assumption of what today is.',
     '',
     'Scope: all data tools operate on the workspace (team) the user currently',
     'has open — including their personal workspace. Records you create are',
