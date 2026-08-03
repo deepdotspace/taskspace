@@ -31,7 +31,7 @@ bucket_name = "auto"
 # its Durable Object data). Must match the registered id exactly — a fresh
 # `deepspace init` id would fork a new empty app on deploy. Verify with
 # `deepspace apps` (appId column).
-DEEPSPACE_APP_ID = "taskspace"
+DEEPSPACE_APP_ID = "app_01KZ4EK7VJGCAYEQ4G2KW1JBKK"
 APP_NAME = "taskspace"
 
 [dev]
