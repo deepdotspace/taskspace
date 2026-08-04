@@ -16,7 +16,6 @@ import LoadingScreen from '../components/LoadingScreen';
 import { useBodyBackground, useIsMobile, useLoadedOnce } from '../hooks';
 import { callAction } from '../utils/callAction';
 
-import { APP_NAME } from '../constants';
 import { teamSchemas } from '../schemas';
 import {
   WidgetUser,
@@ -262,7 +261,6 @@ export default function HomePage() {
       <RecordScope
         roomId={`team:${activeTeamId}`}
         schemas={teamSchemas}
-        appId={APP_NAME}
       >
         <TeamWorkspace
           activeTeamId={activeTeamId}
