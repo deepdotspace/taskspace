@@ -51,10 +51,11 @@ test.describe('AI chat API', () => {
         body: JSON.stringify({}),
       })
       if (!createRes.ok) return { error: `create failed: ${createRes.status}` }
-      const { chat } = await createRes.json() as { chat: { id: string } }
+      const { chat } = await createRes.json() as { chat: { recordId: string } }
+      if (!chat?.recordId) return { error: 'create response missing chat.recordId' }
 
       // Patch (rename) the chat
-      const patchRes = await fetch(`/api/ai/chats/${chat.id}`, {
+      const patchRes = await fetch(`/api/ai/chats/${chat.recordId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify({ title: 'My test chat' }),
@@ -62,7 +63,7 @@ test.describe('AI chat API', () => {
       if (!patchRes.ok) return { error: `patch failed: ${patchRes.status}` }
 
       // Delete the chat
-      const deleteRes = await fetch(`/api/ai/chats/${chat.id}`, {
+      const deleteRes = await fetch(`/api/ai/chats/${chat.recordId}`, {
         method: 'DELETE',
         headers: { ...authHeader },
       })

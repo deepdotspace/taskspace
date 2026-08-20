@@ -230,8 +230,8 @@ export default function TeamWorkspace({
       if (token) headers.Authorization = `Bearer ${token}`;
       const res = await fetch('/api/ai/chats', { method: 'POST', headers });
       if (!res.ok) throw new Error(`create chat failed: ${res.status}`);
-      const data = await res.json() as { chat?: { id?: string } };
-      if (data.chat?.id) setActiveChatId(data.chat.id);
+      const data = await res.json() as { chat?: { recordId?: string } };
+      if (data.chat?.recordId) setActiveChatId(data.chat.recordId);
     } catch (err) {
       console.error('[ai-chat] create chat failed:', err);
     } finally {

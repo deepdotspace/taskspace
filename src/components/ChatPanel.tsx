@@ -196,8 +196,11 @@ function useStreamingChat(
             body: JSON.stringify({}),
           })
           if (!res.ok) throw new Error(`Failed to create chat: ${res.status}`)
-          const data = (await res.json()) as { chat: { id: string } }
-          activeChatId = data.chat.id
+          const data = (await res.json()) as { chat?: { recordId?: unknown } }
+          if (typeof data.chat?.recordId !== 'string') {
+            throw new Error('Failed to create chat: response is missing chat.recordId')
+          }
+          activeChatId = data.chat.recordId
           onChatCreated?.(activeChatId)
         } catch (err) {
           setError(err instanceof Error ? err : new Error(String(err)))
