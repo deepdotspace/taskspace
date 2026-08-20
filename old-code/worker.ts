@@ -118,10 +118,13 @@ async function handleAssets(request: Request, url: URL, env: Env): Promise<Respo
     return assetResponse
   }
 
-  // SPA fallback: serve index.html for non-asset 404s
+  // SPA fallback for non-asset 404s. A path whose last segment contains a "."
+  // is a file, not a client route — a miss must 404, not serve the shell.
+  // Deploys set not_found_handling = "none" and "/index.html" redirects to
+  // "/", so the fallback fetches "/" directly.
   const hasFileExtension = /\.[a-zA-Z0-9]+$/.test(url.pathname)
-  if (!hasFileExtension || url.pathname.endsWith('.html')) {
-    const indexRequest = new Request(new URL('/index.html', url.origin), request)
+  if (!hasFileExtension) {
+    const indexRequest = new Request(new URL('/', url.origin), request)
     return env.ASSETS.fetch(indexRequest)
   }
 

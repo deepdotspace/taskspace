@@ -13,7 +13,7 @@
 
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { apiWorkerFetch, authWorkerFetch, verifyJwt } from 'deepspace/worker'
+import { apiWorkerFetch, authWorkerFetch, authenticatedRoomRequest, verifyJwt } from 'deepspace/worker'
 import type { JwtVerifierConfig, VerifyResult } from 'deepspace/worker'
 import {
   RecordRoom,
@@ -411,27 +411,26 @@ async function resolveWsAuth(req: Request, env: Env): Promise<VerifyResult | nul
 
 function wsRoute(
   doNamespace: (env: Env) => DurableObjectNamespace,
-  extraParams?: (auth: VerifyResult) => Record<string, string>,
+  extraIdentity?: (auth: VerifyResult) => { role?: string },
 ) {
   return async (c: any) => {
     const id = c.req.param('roomId') ?? c.req.param('docId') ?? c.req.param('scopeId')
     const auth = await resolveWsAuth(c.req.raw, c.env)
     console.log(`[ws] ${id} (user: ${auth?.userId ?? 'anon'})`)
 
-    const doUrl = new URL(c.req.url)
-    if (auth) {
-      doUrl.searchParams.set('userId', auth.userId)
-      if (extraParams) {
-        for (const [k, v] of Object.entries(extraParams(auth))) {
-          doUrl.searchParams.set(k, v)
-        }
-      }
-    }
-    doUrl.searchParams.delete('token')
+    // Rooms read identity only from the internal x-user-* headers this helper
+    // sets from the verified JWT (public identity inputs are stripped). The
+    // pre-0.19 `?userId=` URL shape is ignored by rooms — forwarding it would
+    // connect every user as anonymous.
+    const roomRequest = authenticatedRoomRequest(
+      c.req.raw,
+      auth,
+      auth ? extraIdentity?.(auth) : undefined,
+    )
 
     const ns = doNamespace(c.env)
     const stub = ns.get(ns.idFromName(id))
-    return stub.fetch(new Request(doUrl.toString(), c.req.raw))
+    return stub.fetch(roomRequest)
   }
 }
 
@@ -445,14 +444,9 @@ app.get('/ws/yjs/:docId', wsRoute((env) => env.YJS_ROOMS, () => ({ role: 'member
 
 app.get('/ws/canvas/:docId', wsRoute((env) => env.CANVAS_ROOMS, () => ({ role: 'member' })))
 
-app.get('/ws/presence/:scopeId', wsRoute(
-  (env) => env.PRESENCE_ROOMS,
-  (auth) => ({
-    ...(auth.claims.name ? { userName: auth.claims.name } : {}),
-    ...(auth.claims.email ? { userEmail: auth.claims.email } : {}),
-    ...(auth.claims.image ? { userImageUrl: auth.claims.image } : {}),
-  }),
-))
+// Name/email/image travel via authenticatedRoomRequest's identity headers
+// (derived from the verified JWT claims), so no extra params are needed.
+app.get('/ws/presence/:scopeId', wsRoute((env) => env.PRESENCE_ROOMS))
 
 // ---------------------------------------------------------------------------
 // Server actions
@@ -548,7 +542,12 @@ app.get('*', async (c) => {
   const response = await c.env.ASSETS.fetch(c.req.raw)
   if (response.status === 404) {
     const url = new URL(c.req.url)
-    url.pathname = '/index.html'
+    // A FILE, not a client route: a miss must 404. Returning the shell here
+    // is HTML parsed as JavaScript, which is a blank page.
+    if (url.pathname.slice(url.pathname.lastIndexOf('/') + 1).includes('.')) {
+      return c.json({ error: 'not_found' }, 404)
+    }
+    url.pathname = '/'
     return c.env.ASSETS.fetch(new Request(url.toString(), c.req.raw))
   }
   return response

@@ -170,7 +170,9 @@ export function registerAiChatRoutes(
     const body = await c.req.json<{ title?: string }>().catch(() => ({} as { title?: string }))
     const patch: { title?: string } = {}
     if (typeof body.title === 'string') patch.title = body.title
-    await updateChat(stub, id, auth.userId, patch)
+    // `updateChat` re-checks the chat; a delete racing this PATCH answers 404
+    // instead of `ok: true` for a write that never landed.
+    if (!(await updateChat(stub, id, auth.userId, patch))) return c.json({ error: 'Not found' }, 404)
     return c.json({ ok: true })
   })
 
@@ -387,14 +389,22 @@ export function registerAiChatRoutes(
         // ABORT the assistant write — otherwise we'd persist an assistant row
         // with no preceding user row, breaking the invariant relied on by the
         // dedup + turnsToCoreMessages loop on the next turn.
-        const writeWithRetry = async (label: string, fn: () => Promise<unknown>): Promise<boolean> => {
-          try { await fn(); return true } catch (err) {
-            console.error(`[ai-chat] ${label} failed, retrying once:`, err)
-            try { await fn(); return true } catch (retryErr) {
-              console.error(`[ai-chat] ${label} retry failed:`, retryErr)
-              return false
+        // The helpers return `false` (no throw) when the chat no longer exists
+        // — deleted mid-stream — and nothing was written; that is not retried,
+        // and it stops the sequence the same way an exhausted retry does.
+        const writeWithRetry = async (label: string, fn: () => Promise<boolean | void>): Promise<boolean> => {
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+              if ((await fn()) === false) {
+                console.warn(`[ai-chat] ${label} skipped — chat ${chatId} no longer exists`)
+                return false
+              }
+              return true
+            } catch (err) {
+              console.error(`[ai-chat] ${label} ${attempt === 1 ? 'failed, retrying once' : 'retry failed'}:`, err)
             }
           }
+          return false
         }
 
         const userOk = await writeWithRetry('user message', () => appendMessage(stub, {
@@ -405,10 +415,10 @@ export function registerAiChatRoutes(
           content,
         }))
         if (!userOk) {
-          console.error('[ai-chat] FINISH aborting — user write failed; skipping assistant + metadata to avoid orphan rows')
+          console.error('[ai-chat] FINISH aborting — user write did not land; skipping assistant + metadata to avoid orphan rows')
           return
         }
-        await writeWithRetry('assistant message', () => appendMessage(stub, {
+        const assistantOk = await writeWithRetry('assistant message', () => appendMessage(stub, {
           id: asstId,
           chatId,
           userId: auth.userId,
@@ -416,18 +426,19 @@ export function registerAiChatRoutes(
           content: text,
           ...(parts.length > 0 ? { parts } : {}),
         }))
+        if (!assistantOk) return
         await writeWithRetry('chat metadata', async () => {
           // Re-fetch so a mid-stream rename by the user isn't clobbered by a
-          // stale "auto-title" derived from the captured `chat` snapshot.
-          // (Note: a tiny TOCTOU window remains between this getChat and the
-          // updateChat below — accepted as low-impact; would need a CAS API
-          // on the DO to fully close.)
+          // stale "auto-title" derived from the captured `chat` snapshot. A
+          // chat deleted mid-stream reads back as null; `updateChat` refuses
+          // that case on its own (an unguarded `records.update` would upsert
+          // the row back into existence), so this only decides the title.
           const fresh = await getChat(stub, chatId, auth.userId)
           const patch: { title?: string; model?: string } = { model: usedModelId }
           if (fresh && (!fresh.title || fresh.title === 'New chat')) {
             patch.title = deriveTitle(content)
           }
-          await updateChat(stub, chatId, auth.userId, patch)
+          return updateChat(stub, chatId, auth.userId, patch)
         })
       },
     })
